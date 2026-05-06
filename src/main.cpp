@@ -1,7 +1,7 @@
 #include <volt-ui/VoltApp.h>
 #include <imgui.h>
 
-class GitBeeApp : public volt::App {
+class CodeYoYoApp : public volt::App {
 public:
     using volt::App::App;
 protected:
@@ -25,10 +25,10 @@ private:
 
 int main() {
     volt::AppConfig cfg;
-    cfg.title = "GitBee";
+    cfg.title = "CodeYoYo";
     cfg.width = 1280;
     cfg.height = 720;
     cfg.use_topbar = true;
-    GitBeeApp app(cfg);
+    CodeYoYoApp app(cfg);
     return app.Run();
 }
