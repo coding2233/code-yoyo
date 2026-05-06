@@ -1,4 +1,5 @@
 #include "ProjectManager.h"
+#include "core/TaskManager.h"
 #include "storage/MarkdownParser.h"
 #include "core/FileSystem.h"
 #include <algorithm>

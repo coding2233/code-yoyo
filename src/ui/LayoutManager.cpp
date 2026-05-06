@@ -8,33 +8,63 @@ void LayoutManager::Shutdown() {
     initialized_ = false;
 }
 
-void LayoutManager::BeginDockspace() {
-    auto viewport = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(viewport->Pos);
-    ImGui::SetNextWindowSize(viewport->Size);
-    ImGui::SetNextWindowViewport(viewport->ID);
-
-    ImGuiWindowFlags flags =
-        ImGuiWindowFlags_NoDocking |
-        ImGuiWindowFlags_NoTitleBar |
-        ImGuiWindowFlags_NoCollapse |
-        ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoMove |
-        ImGuiWindowFlags_NoBringToFrontOnFocus |
-        ImGuiWindowFlags_NoNavFocus |
-        ImGuiWindowFlags_NoBackground;
-
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
-
-    ImGui::Begin("DockSpace", nullptr, flags);
-    ImGui::PopStyleVar(3);
-
-    dockspace_id_ = ImGui::GetID("MyDockspace");
-    ImGui::DockSpace(dockspace_id_, ImVec2(0, 0), ImGuiDockNodeFlags_None);
+void LayoutManager::BeginFrame() {
+    // No dockspace needed - panels position themselves
 }
 
-void LayoutManager::EndDockspace() {
-    ImGui::End();
+void LayoutManager::EndFrame() {
+}
+
+ImRect LayoutManager::GetPanelRect(PanelArea area) const {
+    auto viewport = ImGui::GetMainViewport();
+    ImVec2 vp_min = viewport->Pos;
+    ImVec2 vp_max = viewport->Pos + viewport->Size;
+
+    float top_offset = topbar_height_;
+
+    // Calculate available space for content
+    float content_top = vp_min.y + top_offset;
+    float content_bottom = vp_max.y;
+
+    // Bottom panel
+    if (show_bottom_) {
+        content_bottom -= bottom_height_;
+    }
+
+    float left = vp_min.x;
+    float right = vp_max.x;
+
+    // Left panel
+    if (show_left_) {
+        left += left_width_;
+    }
+
+    // Right panel
+    if (show_right_) {
+        right -= right_width_;
+    }
+
+    switch (area) {
+        case PanelArea::Left:
+            return ImRect(
+                ImVec2(vp_min.x, content_top),
+                ImVec2(vp_min.x + (show_left_ ? left_width_ : 0), content_bottom)
+            );
+        case PanelArea::Center:
+            return ImRect(
+                ImVec2(left, content_top),
+                ImVec2(right, content_bottom)
+            );
+        case PanelArea::Right:
+            return ImRect(
+                ImVec2(vp_max.x - (show_right_ ? right_width_ : 0), content_top),
+                ImVec2(vp_max.x, content_bottom)
+            );
+        case PanelArea::Bottom:
+            return ImRect(
+                ImVec2(vp_min.x, vp_max.y - (show_bottom_ ? bottom_height_ : 0)),
+                ImVec2(vp_max.x, vp_max.y)
+            );
+    }
+    return ImRect(ImVec2(0, 0), ImVec2(0, 0));
 }

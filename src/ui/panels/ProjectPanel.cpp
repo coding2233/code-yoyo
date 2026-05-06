@@ -1,12 +1,20 @@
 #include "ProjectPanel.h"
 #include "core/ProjectManager.h"
+#include "ui/LayoutManager.h"
 #include "ui/Theme.h"
 #include <imgui.h>
 
-void ProjectPanel::Render(ProjectManager& pm) {
+void ProjectPanel::Render(ProjectManager& pm, const LayoutManager& layout) {
     if (!open_) return;
 
-    ImGui::Begin("Projects", &open_);
+    auto rect = layout.GetPanelRect(PanelArea::Left);
+    ImGui::SetNextWindowPos(rect.Min);
+    ImGui::SetNextWindowSize(rect.GetSize());
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
+
+    ImGui::Begin("Projects", &open_,
+        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBringToFrontOnFocus);
 
     if (ImGui::Button("+ New Project", ImVec2(-1, 0))) {
         show_new_popup_ = true;
@@ -50,6 +58,7 @@ void ProjectPanel::Render(ProjectManager& pm) {
     RenderNewProjectPopup(pm);
 
     ImGui::End();
+    ImGui::PopStyleVar();
 }
 
 void ProjectPanel::RenderNewProjectPopup(ProjectManager& pm) {

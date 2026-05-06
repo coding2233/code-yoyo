@@ -3,22 +3,30 @@
 #include "core/TaskManager.h"
 #include "core/FileSystem.h"
 #include "storage/MarkdownParser.h"
+#include "ui/LayoutManager.h"
 #include "ui/Theme.h"
 #include <map>
 
-void TaskBoardPanel::Render(ProjectManager& pm, TaskManager& tm) {
+void TaskBoardPanel::Render(ProjectManager& pm, TaskManager& tm, const LayoutManager& layout) {
     if (!open_) return;
 
-    ImGui::Begin("Task Board", &open_);
+    auto rect = layout.GetPanelRect(PanelArea::Center);
+    ImGui::SetNextWindowPos(rect.Min);
+    ImGui::SetNextWindowSize(rect.GetSize());
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
+
+    ImGui::Begin("Task Board", &open_,
+        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
+        ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBringToFrontOnFocus);
 
     auto* project = pm.GetActiveProject();
     if (!project) {
         ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.6f, 1), "Select a project to get started.");
         ImGui::End();
+        ImGui::PopStyleVar();
         return;
     }
 
-    // Top bar
     if (ImGui::Button("+ New Task")) {
         show_new_task_popup_ = true;
     }
@@ -26,7 +34,6 @@ void TaskBoardPanel::Render(ProjectManager& pm, TaskManager& tm) {
     ImGui::Text("  |  %s  [%s]", project->name.c_str(), project->repo.c_str());
     ImGui::Separator();
 
-    // Load all task files
     auto task_files = FileSystem::ListFiles(project->tasks_path, ".md");
     std::vector<Task> tasks;
     for (const auto& f : task_files) {
@@ -36,7 +43,6 @@ void TaskBoardPanel::Render(ProjectManager& pm, TaskManager& tm) {
         }
     }
 
-    // New task popup
     if (show_new_task_popup_) {
         ImGui::OpenPopup("New Task");
         show_new_task_popup_ = false;
@@ -67,7 +73,6 @@ void TaskBoardPanel::Render(ProjectManager& pm, TaskManager& tm) {
         ImGui::EndPopup();
     }
 
-    // Collect subtasks grouped by status
     std::map<SubtaskStatus, std::vector<std::pair<Task*, Subtask*>>> grouped;
     for (auto& task : tasks) {
         for (auto& sub : task.subtasks) {
@@ -75,7 +80,6 @@ void TaskBoardPanel::Render(ProjectManager& pm, TaskManager& tm) {
         }
     }
 
-    // Kanban columns
     const float avail = ImGui::GetContentRegionAvail().x;
     const float col_width = (avail - ImGui::GetStyle().ItemSpacing.x * 3) / 4.0f;
 
@@ -97,7 +101,6 @@ void TaskBoardPanel::Render(ProjectManager& pm, TaskManager& tm) {
         ImGui::BeginGroup();
         ImGui::PushID(ci);
 
-        // Column header
         auto header_color = Theme::ColorForStatus(cols[ci].status_str);
         ImGui::PushStyleColor(ImGuiCol_ChildBg, header_color & 0x00FFFFFF | 0x18000000);
         ImGui::BeginChild(("hdr" + cols[ci].title).c_str(), ImVec2(col_width, 32), true);
@@ -109,7 +112,6 @@ void TaskBoardPanel::Render(ProjectManager& pm, TaskManager& tm) {
         ImGui::EndChild();
         ImGui::PopStyleColor();
 
-        // Column body
         float body_height = ImGui::GetContentRegionAvail().y;
         ImGui::BeginChild(("body" + cols[ci].title).c_str(), ImVec2(col_width, body_height), true);
 
@@ -124,6 +126,7 @@ void TaskBoardPanel::Render(ProjectManager& pm, TaskManager& tm) {
     }
 
     ImGui::End();
+    ImGui::PopStyleVar();
 }
 
 void TaskBoardPanel::RenderCard(const Subtask& sub) {
@@ -136,10 +139,8 @@ void TaskBoardPanel::RenderCard(const Subtask& sub) {
     ImGui::PushStyleColor(ImGuiCol_ChildBg, card_bg);
     ImGui::BeginChild(("card" + sub.id).c_str(), ImVec2(0, 80), true);
 
-    // Title
     ImGui::Text("%s", sub.title.c_str());
 
-    // Status + risk badges
     ImGui::Spacing();
     ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.7f, 1), "%s", sub.id.c_str());
     ImGui::SameLine();
@@ -157,12 +158,10 @@ void TaskBoardPanel::RenderCard(const Subtask& sub) {
         ((risk_color >> 8) & 0xFF) / 255.0f, 1),
         " %s", risk_str.c_str());
 
-    // Assignee
     if (!sub.assignee.empty()) {
         ImGui::TextDisabled("→ %s", sub.assignee.c_str());
     }
 
-    // Click to select
     if (ImGui::IsItemHovered() || ImGui::IsWindowHovered()) {
         if (ImGui::IsMouseClicked(0)) {
             selected_subtask_ = const_cast<Subtask*>(&sub);

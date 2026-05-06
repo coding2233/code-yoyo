@@ -5,10 +5,11 @@
 #include <imgui.h>
 
 class ProjectManager;
+class LayoutManager;
 
 class ProjectPanel {
 public:
-    void Render(ProjectManager& pm);
+    void Render(ProjectManager& pm, const LayoutManager& layout);
     void RenderNewProjectPopup(ProjectManager& pm);
     bool IsOpen() const { return open_; }
     void SetOpen(bool o) { open_ = o; }

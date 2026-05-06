@@ -7,10 +7,11 @@
 
 class TaskManager;
 class ProjectManager;
+class LayoutManager;
 
 class TaskBoardPanel {
 public:
-    void Render(ProjectManager& pm, TaskManager& tm);
+    void Render(ProjectManager& pm, TaskManager& tm, const LayoutManager& layout);
     void SetOpen(bool o) { open_ = o; }
     bool IsOpen() const { return open_; }
     void SetSelectedSubtask(Subtask* s) { selected_subtask_ = s; }
