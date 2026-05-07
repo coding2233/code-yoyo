@@ -109,28 +109,44 @@ protected:
     }
 
     void RenderTopbarMenu() {
-        if (ImGui::BeginMainMenuBar()) {
-            if (ImGui::BeginMenu("View")) {
-                if (ImGui::MenuItem("Kanban Board", nullptr, current_view_ == 0)) { current_view_ = 0; }
-                if (ImGui::MenuItem("Task Tree", nullptr, current_view_ == 1)) { current_view_ = 1; }
-                if (ImGui::MenuItem("Scheduled Tasks", nullptr, current_view_ == 2)) { current_view_ = 2; }
-                if (ImGui::MenuItem("Diff Review", !pending_diff_.empty() ? "\u25CF" : nullptr, current_view_ == 3)) { current_view_ = 3; }
-                if (ImGui::MenuItem("Settings", nullptr, current_view_ == 4)) { current_view_ = 4; }
-                ImGui::Separator();
-                ImGui::MenuItem("Project Panel", nullptr, &show_project_panel_);
-                ImGui::MenuItem("Task Detail", nullptr, &show_detail_panel_);
-                ImGui::MenuItem("Agent Console", nullptr, &show_console_panel_);
-                ImGui::EndMenu();
-            }
-            if (ImGui::BeginMenu("Tools")) {
-                if (ImGui::MenuItem("Scheduler", scheduler_.IsRunning() ? "Running" : "Stopped")) {
-                    if (scheduler_.IsRunning()) scheduler_.Stop();
-                    else scheduler_.Start();
+        auto* viewport = ImGui::GetMainViewport();
+        float topbar_h = GetTopbarHeight();
+
+        ImGui::SetNextWindowPos(ImVec2(viewport->Pos.x, viewport->Pos.y + topbar_h));
+        ImGui::SetNextWindowSize(ImVec2(viewport->Size.x, ImGui::GetFrameHeight()));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0);
+
+        if (ImGui::Begin("##MenuBar", nullptr,
+            ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize |
+            ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar |
+            ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_MenuBar))
+        {
+            if (ImGui::BeginMenuBar()) {
+                if (ImGui::BeginMenu("View")) {
+                    if (ImGui::MenuItem("Kanban Board", nullptr, current_view_ == 0)) { current_view_ = 0; }
+                    if (ImGui::MenuItem("Task Tree", nullptr, current_view_ == 1)) { current_view_ = 1; }
+                    if (ImGui::MenuItem("Scheduled Tasks", nullptr, current_view_ == 2)) { current_view_ = 2; }
+                    if (ImGui::MenuItem("Diff Review", !pending_diff_.empty() ? "\u25CF" : nullptr, current_view_ == 3)) { current_view_ = 3; }
+                    if (ImGui::MenuItem("Settings", nullptr, current_view_ == 4)) { current_view_ = 4; }
+                    ImGui::Separator();
+                    ImGui::MenuItem("Project Panel", nullptr, &show_project_panel_);
+                    ImGui::MenuItem("Task Detail", nullptr, &show_detail_panel_);
+                    ImGui::MenuItem("Agent Console", nullptr, &show_console_panel_);
+                    ImGui::EndMenu();
                 }
-                ImGui::EndMenu();
+                if (ImGui::BeginMenu("Tools")) {
+                    if (ImGui::MenuItem("Scheduler", scheduler_.IsRunning() ? "Running" : "Stopped")) {
+                        if (scheduler_.IsRunning()) scheduler_.Stop();
+                        else scheduler_.Start();
+                    }
+                    ImGui::EndMenu();
+                }
+                ImGui::EndMenuBar();
             }
-            ImGui::EndMainMenuBar();
+            layout_mgr_.SetMenuBarHeight(ImGui::GetWindowHeight());
         }
+        ImGui::End();
+        ImGui::PopStyleVar();
     }
 
     void OnEvent(const SDL_Event& event) override {

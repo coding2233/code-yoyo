@@ -26,6 +26,8 @@ public:
     void ToggleRight() { show_right_ = !show_right_; }
     void ToggleBottom() { show_bottom_ = !show_bottom_; }
 
+    void SetMenuBarHeight(float h) { menubar_height_ = h; }
+
     bool IsLeftVisible() const { return show_left_; }
     bool IsRightVisible() const { return show_right_; }
     bool IsBottomVisible() const { return show_bottom_; }
@@ -41,4 +43,5 @@ private:
     float right_width_ = 350.0f;
     float bottom_height_ = 220.0f;
     float topbar_height_ = 36.0f;
+    float menubar_height_ = 0.0f;
 };

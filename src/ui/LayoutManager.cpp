@@ -20,7 +20,7 @@ ImRect LayoutManager::GetPanelRect(PanelArea area) const {
     ImVec2 vp_min = viewport->Pos;
     ImVec2 vp_max = ImVec2(viewport->Pos.x + viewport->Size.x, viewport->Pos.y + viewport->Size.y);
 
-    float top_offset = topbar_height_;
+    float top_offset = topbar_height_ + menubar_height_;
 
     // Calculate available space for content
     float content_top = vp_min.y + top_offset;
