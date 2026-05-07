@@ -1,20 +1,20 @@
-# CodeYoYo 剩余功能开发计划
+# CodeYoYo 开发计划
 
-> 基于 `docs/architecture.md` 的检查结果，整理未完成功能的详细开发方案。
+> 所有功能已实现。详见 [功能清单](remaining.md)。
 
 ---
 
-## 目录
+## 已实现功能
 
-1. [启用 ImGui Docking（Phase 1）](#1-启用-imgui-dockingphase-1)
-2. [Executor 串行/并行调度（Phase 2）](#2-executor-串行并行调度phase-2)
-3. [@agent 自动补全 + 触发执行（Phase 2）](#3-agent-自动补全--触发执行phase-2)
-4. [ApprovalGate 集成（Phase 3）](#4-approvalgate-集成phase-3)
-5. [看板卡片拖拽（Phase 3）](#5-看板卡片拖拽phase-3)
-6. [DiffReviewPanel 集成（Phase 3）](#6-diffreviewpanel-集成phase-3)
-7. [SkillManager 接入 Executor（Phase 2）](#7-skillmanager-接入-executorphase-2)
-8. [SettingsPanel Skills 编辑完善（Phase 2）](#8-settingspanel-skills-编辑完善phase-2)
-9. [AI 辅助 Task 拆解（Phase 3）](#9-ai-辅助-task-拆解phase-3)
+1. ✅ [启用 ImGui Docking（Phase 1）](#1-启用-imgui-dockingphase-1)
+2. ✅ [Executor 串行/并行调度 + 依赖解析（Phase 2）](#2-executor-串行并行调度phase-2)
+3. ✅ [@agent 自动补全 + 触发执行（Phase 2）](#3-agent-自动补全--触发执行phase-2)
+4. ✅ [ApprovalGate 集成（Phase 3）](#4-approvalgate-集成phase-3)
+5. ✅ [看板卡片拖拽（Phase 3）](#5-看板卡片拖拽phase-3)
+6. ✅ [DiffReviewPanel 集成（Phase 3）](#6-diffreviewpanel-集成phase-3)
+7. ✅ [SkillManager 接入 Executor（Phase 2）](#7-skillmanager-接入-executorphase-2)
+8. ✅ [SettingsPanel Skills 编辑完善（Phase 2）](#8-settingspanel-skills-编辑完善phase-2)
+9. ✅ [AI 辅助 Task 拆解（Phase 3）](#9-ai-辅助-task-拆解phase-3)
 
 ---
 

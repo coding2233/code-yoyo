@@ -31,6 +31,7 @@ public:
 protected:
     void OnCreate() override {
         Theme::ApplyDark();
+        Theme::LoadFonts();
 
         ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 

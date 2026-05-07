@@ -1132,41 +1132,41 @@ bool IsDue(time_t next_run) {
 目标：可运行的应用，能创建项目、看板展示 Task
 
 - [x] 现有：SDL3 + ImGui 窗口 + Topbar
-- [ ] 启用 ImGui Docking
-- [ ] 实现 MarkdownParser（读取 project.md + Task .md）
-- [ ] 实现 MarkdownWriter（写入/更新 .md 文件）
-- [ ] 实现 ProjectManager（CRUD + 索引）
-- [ ] 实现 TaskManager（CRUD + 状态管理）
-- [ ] 实现 ProjectPanel（左侧列表）
-- [ ] 实现 TaskBoardPanel（静态看板，不可拖拽）
-- [ ] 实现 TaskDetailPanel（基本信息展示）
-- [ ] 基础 Theme 样式
+- [x] 启用 ImGui Docking
+- [x] 实现 MarkdownParser（读取 project.md + Task .md）
+- [x] 实现 MarkdownWriter（写入/更新 .md 文件）
+- [x] 实现 ProjectManager（CRUD + 索引）
+- [x] 实现 TaskManager（CRUD + 状态管理）
+- [x] 实现 ProjectPanel（左侧列表）
+- [x] 实现 TaskBoardPanel（静态看板 + 拖拽）
+- [x] 实现 TaskDetailPanel（基本信息展示 + 对话 + 审批 + AI 拆解）
+- [x] 基础 Theme 样式
 
 ### Phase 2 — Agent 执行
 
 目标：能通过 Agent 执行 Subtask
 
-- [ ] 实现 AgentManager + 项目级合并
-- [ ] 实现 SkillManager
-- [ ] 实现 ProcessManager（Windows ConPTY 封装）
-- [ ] 实现 Executor（串行 + 并行调度）
-- [ ] 实现 AgentConsolePanel（流式输出）
-- [ ] 实现对话回复机制（blockquote 解析/写入）
-- [ ] 实现 @agent 自动补全 + 触发执行
-- [ ] SettingsPanel（Agent/Skill 配置 UI）
+- [x] 实现 AgentManager + 项目级合并
+- [x] 实现 SkillManager
+- [x] 实现 ProcessManager（Windows ConPTY 封装）
+- [x] 实现 Executor（串行 + 并行调度 + 依赖解析）
+- [x] 实现 AgentConsolePanel（流式输出）
+- [x] 实现对话回复机制（blockquote 解析/写入）
+- [x] 实现 @agent 自动补全 + 触发执行
+- [x] SettingsPanel（Agent/Skill 配置 UI）
 
 ### Phase 3 — 完善
 
 目标：审批、定时任务、视图切换
 
-- [ ] 实现 ApprovalGate + 风险评级
-- [ ] 实现 DiffReviewPanel
-- [ ] 实现 Scheduler（Cron 轮询引擎）
-- [ ] 实现 SchedulePanel
-- [ ] 看板卡片拖拽（改变状态 + 分配 Agent）
-- [ ] TaskTreePanel（树形列表视图）
-- [ ] AI 辅助 Task 拆解
-- [ ] 审计日志
+- [x] 实现 ApprovalGate + 风险评级 + Executor 集成
+- [x] 实现 DiffReviewPanel + diff 数据接入
+- [x] 实现 Scheduler（Cron 轮询引擎）
+- [x] 实现 SchedulePanel
+- [x] 看板卡片拖拽（改变状态）
+- [x] TaskTreePanel（树形列表视图）
+- [x] AI 辅助 Task 拆解（AI + 本地 fallback）
+- [x] 审计日志（AUDIT.md）
 
 ---
 

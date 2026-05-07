@@ -17,4 +17,8 @@ target("CodeYoYo")
         add_syslinks("pthread")
     end
 
+    after_build(function (target)
+        os.cp("fonts", target:targetdir())
+    end)
+
 target_end()
