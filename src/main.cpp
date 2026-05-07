@@ -25,7 +25,7 @@
 class CodeYoYoApp : public volt::App {
 public:
     CodeYoYoApp(const volt::AppConfig& cfg) : volt::App(cfg),
-        executor_(process_mgr_, task_mgr_),
+        executor_(process_mgr_, task_mgr_, &skill_mgr_),
         scheduler_(project_mgr_, task_mgr_, executor_, agent_mgr_) {}
 
 protected:
@@ -41,14 +41,39 @@ protected:
 
         layout_mgr_.Init();
 
+        // Wire up diff callback
+        executor_.SetOnDiffAvailable([this](const std::string& diff, const std::string& subtask_id) {
+            pending_diff_ = diff;
+            pending_diff_subtask_ = subtask_id;
+        });
+
         scheduler_.Start();
     }
 
     void OnRender() override {
         layout_mgr_.BeginFrame();
 
-        // Create dockspace
-auto viewport = ImGui::GetMainViewport();
+        // Show pending diff notification
+        if (!pending_diff_.empty()) {
+            diff_review_panel_.SetDiffContent(pending_diff_);
+        }
+
+        // Left panel: project list
+        if (show_project_panel_)
+            project_panel_.Render(project_mgr_, layout_mgr_);
+
+        // Center panel: based on current view
+        if (current_view_ == 0) {
+            task_board_panel_.Render(project_mgr_, task_mgr_, layout_mgr_);
+        } else if (current_view_ == 1) {
+            task_tree_panel_.Render(project_mgr_, layout_mgr_);
+        } else if (current_view_ == 2) {
+            schedule_panel_.Render(project_mgr_, task_mgr_, layout_mgr_);
+        } else if (current_view_ == 3) {
+            diff_review_panel_.Render(layout_mgr_);
+        } else if (current_view_ == 4) {
+            settings_panel_.Render(agent_mgr_, skill_mgr_, layout_mgr_);
+        }
 
         // Sync selected subtask to detail panel
         auto* selected = task_board_panel_.GetSelectedSubtask();
@@ -78,7 +103,6 @@ auto viewport = ImGui::GetMainViewport();
         if (show_console_panel_)
             agent_console_panel_.Render(executions, layout_mgr_);
 
-        // Topbar menu
         RenderTopbarMenu();
 
         layout_mgr_.EndFrame();
@@ -90,7 +114,7 @@ auto viewport = ImGui::GetMainViewport();
                 if (ImGui::MenuItem("Kanban Board", nullptr, current_view_ == 0)) { current_view_ = 0; }
                 if (ImGui::MenuItem("Task Tree", nullptr, current_view_ == 1)) { current_view_ = 1; }
                 if (ImGui::MenuItem("Scheduled Tasks", nullptr, current_view_ == 2)) { current_view_ = 2; }
-                if (ImGui::MenuItem("Diff Review", nullptr, current_view_ == 3)) { current_view_ = 3; }
+                if (ImGui::MenuItem("Diff Review", !pending_diff_.empty() ? "●" : nullptr, current_view_ == 3)) { current_view_ = 3; }
                 if (ImGui::MenuItem("Settings", nullptr, current_view_ == 4)) { current_view_ = 4; }
                 ImGui::Separator();
                 ImGui::MenuItem("Project Panel", nullptr, &show_project_panel_);
@@ -151,6 +175,9 @@ private:
     bool show_project_panel_ = true;
     bool show_detail_panel_ = true;
     bool show_console_panel_ = true;
+
+    std::string pending_diff_;
+    std::string pending_diff_subtask_;
 };
 
 int main() {

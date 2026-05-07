@@ -16,7 +16,6 @@ void SettingsPanel::Render(AgentManager& agent_mgr, SkillManager& skill_mgr, con
         ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
         ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBringToFrontOnFocus);
 
-    // Tab bar
     const char* tabs[] = { "Agents", "Skills" };
     for (int i = 0; i < 2; i++) {
         if (i > 0) ImGui::SameLine();
@@ -81,7 +80,6 @@ void SettingsPanel::RenderAgentsTab(AgentManager& agent_mgr) {
         ImGui::PopID();
     }
 
-    // Edit/Add popup
     ImVec2 center = ImGui::GetMainViewport()->GetCenter();
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     if (ImGui::BeginPopupModal("Edit Agent", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
@@ -128,6 +126,8 @@ void SettingsPanel::RenderSkillsTab(SkillManager& skill_mgr) {
     if (ImGui::Button("+ Add Skill", ImVec2(120, 0))) {
         editing_skill_idx_ = -1;
         skill_id_buf_[0] = '\0';
+        skill_desc_buf_[0] = '\0';
+        skill_inst_buf_[0] = '\0';
         ImGui::OpenPopup("Edit Skill");
     }
 
@@ -137,14 +137,27 @@ void SettingsPanel::RenderSkillsTab(SkillManager& skill_mgr) {
         auto& s = skills[i];
         ImGui::PushID(i);
 
-        ImGui::Text("%s", s.id.c_str());
-        ImGui::SameLine();
-        ImGui::TextDisabled("(%s)", s.description.c_str());
+        if (ImGui::TreeNode(s.id.c_str())) {
+            ImGui::TextWrapped("Description: %s", s.description.c_str());
+            ImGui::Spacing();
+            if (!s.instructions.empty()) {
+                ImGui::TextWrapped("Instructions: %s", s.instructions.c_str());
+            }
 
-        ImGui::SameLine(ImGui::GetContentRegionAvail().x - 80);
-        if (ImGui::SmallButton("Del")) {
-            skills.erase(skills.begin() + i);
-            skill_mgr.SaveSkills();
+            if (ImGui::Button("Edit")) {
+                editing_skill_idx_ = i;
+                strncpy(skill_id_buf_, s.id.c_str(), sizeof(skill_id_buf_) - 1);
+                strncpy(skill_desc_buf_, s.description.c_str(), sizeof(skill_desc_buf_) - 1);
+                strncpy(skill_inst_buf_, s.instructions.c_str(), sizeof(skill_inst_buf_) - 1);
+                ImGui::OpenPopup("Edit Skill");
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Del")) {
+                skills.erase(skills.begin() + i);
+                skill_mgr.SaveSkills();
+            }
+
+            ImGui::TreePop();
         }
 
         ImGui::PopID();
@@ -154,13 +167,23 @@ void SettingsPanel::RenderSkillsTab(SkillManager& skill_mgr) {
     ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
     if (ImGui::BeginPopupModal("Edit Skill", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
         ImGui::InputText("Skill ID", skill_id_buf_, sizeof(skill_id_buf_));
+        ImGui::InputText("Description", skill_desc_buf_, sizeof(skill_desc_buf_));
+        ImGui::InputTextMultiline("Instructions", skill_inst_buf_,
+            sizeof(skill_inst_buf_), ImVec2(400, 120));
+
         if (ImGui::Button("Save", ImVec2(120, 0))) {
             std::string id(skill_id_buf_);
             if (!id.empty()) {
                 Skill s;
                 s.id = id;
-                s.description = id;
-                skills.push_back(s);
+                s.description = std::string(skill_desc_buf_);
+                s.instructions = std::string(skill_inst_buf_);
+
+                if (editing_skill_idx_ >= 0 && editing_skill_idx_ < (int)skills.size()) {
+                    skills[editing_skill_idx_] = s;
+                } else {
+                    skills.push_back(s);
+                }
                 skill_mgr.SaveSkills();
                 ImGui::CloseCurrentPopup();
             }

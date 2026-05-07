@@ -3,6 +3,7 @@
 #include "core/TaskManager.h"
 #include "core/FileSystem.h"
 #include "storage/MarkdownParser.h"
+#include "storage/MarkdownWriter.h"
 #include "ui/LayoutManager.h"
 #include "ui/Theme.h"
 #include <map>
@@ -115,6 +116,25 @@ void TaskBoardPanel::Render(ProjectManager& pm, TaskManager& tm, const LayoutMan
         float body_height = ImGui::GetContentRegionAvail().y;
         ImGui::BeginChild(("body" + cols[ci].title).c_str(), ImVec2(col_width, body_height), true);
 
+        // Drop target for the column
+        if (ImGui::BeginDragDropTarget()) {
+            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_SUBTASK")) {
+                std::string dropped_id((const char*)payload->Data);
+                auto task_files2 = FileSystem::ListFiles(project->tasks_path, ".md");
+                for (const auto& f : task_files2) {
+                    auto content = FileSystem::ReadFile(f);
+                    if (content.empty()) continue;
+                    auto updated = MarkdownWriter::UpdateSubtaskStatus(
+                        content, dropped_id, cols[ci].status_str, "");
+                    if (updated != content) {
+                        FileSystem::WriteFile(f, updated);
+                        break;
+                    }
+                }
+            }
+            ImGui::EndDragDropTarget();
+        }
+
         auto& items = grouped[cols[ci].filter];
         for (auto& [task, sub] : items) {
             RenderCard(*sub);
@@ -166,6 +186,13 @@ void TaskBoardPanel::RenderCard(const Subtask& sub) {
         if (ImGui::IsMouseClicked(0)) {
             selected_subtask_ = const_cast<Subtask*>(&sub);
         }
+    }
+
+    // Drag source
+    if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
+        ImGui::SetDragDropPayload("DND_SUBTASK", sub.id.c_str(), sub.id.size() + 1);
+        ImGui::Text("Move %s", sub.id.c_str());
+        ImGui::EndDragDropSource();
     }
 
     ImGui::EndChild();

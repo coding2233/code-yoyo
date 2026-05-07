@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 #include <imgui.h>
 #include "models/Task.h"
 
@@ -23,10 +24,16 @@ private:
     void RenderSubtaskDetail(const Task& task, Subtask& sub,
         Executor& exec, AgentManager& agent_mgr, const Project& project);
     void RenderConversation(const Subtask& sub);
+    void ShowAgentAutocomplete(const std::string& partial, AgentManager& agent_mgr);
+    void HandleAgentTrigger(const std::string& body, Subtask& sub, const Task& task,
+        Executor& exec, AgentManager& agent_mgr, const Project& project);
 
     bool open_ = true;
     Task* current_task_ = nullptr;
     Subtask* current_subtask_ = nullptr;
     char reply_input_[4096] = {};
     char agent_buf_[64] = {};
+
+    bool show_autocomplete_ = false;
+    int autocomplete_cursor_ = 0;
 };

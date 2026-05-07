@@ -1,12 +1,16 @@
 #include "Executor.h"
 #include "ProcessManager.h"
 #include "TaskManager.h"
+#include "SkillManager.h"
+#include "ApprovalGate.h"
 #include "core/FileSystem.h"
 #include "storage/MarkdownParser.h"
 #include "storage/MarkdownWriter.h"
 #include <sstream>
 #include <ctime>
 #include <iomanip>
+#include <cstdio>
+#include <array>
 
 static std::string NowTimestamp() {
     auto t = std::time(nullptr);
@@ -24,8 +28,8 @@ static std::string NowShort() {
     return ss.str();
 }
 
-Executor::Executor(ProcessManager& pm, TaskManager& tm)
-    : pm_(pm), tm_(tm) {}
+Executor::Executor(ProcessManager& pm, TaskManager& tm, SkillManager* sm)
+    : pm_(pm), tm_(tm), skill_mgr_(sm) {}
 
 std::string Executor::NextExecutionId() {
     std::lock_guard<std::mutex> lock(mu_);
@@ -43,11 +47,37 @@ std::string Executor::NextExecutionId() {
     return ss.str();
 }
 
-static std::string BuildPrompt(const Subtask& sub, const Agent& agent) {
+std::string Executor::GetGitDiff(const std::string& repo_path) {
+    std::string git_dir = repo_path + "/.git";
+    if (!FileSystem::DirExists(git_dir)) return "";
+
+    std::array<char, 4096> buf;
+    std::string result;
+    std::string cmd = "cd \"" + repo_path + "\" 2>/dev/null && git diff 2>/dev/null";
+
+    FILE* pipe = popen(cmd.c_str(), "r");
+    if (!pipe) return "";
+
+    while (fgets(buf.data(), (int)buf.size(), pipe) != nullptr) {
+        result += buf.data();
+    }
+    pclose(pipe);
+    return result;
+}
+
+static std::string BuildPrompt(const Subtask& sub, const Agent& agent,
+                                SkillManager* skill_mgr) {
     std::string prompt;
     if (!agent.instructions.empty()) {
         prompt += agent.instructions + "\n\n";
     }
+
+    if (skill_mgr && !agent.skills.empty()) {
+        for (const auto& skill_id : agent.skills) {
+            prompt = skill_mgr->BuildPrompt(prompt, skill_id);
+        }
+    }
+
     if (!sub.description.empty()) {
         prompt += sub.description;
     }
@@ -63,7 +93,6 @@ void Executor::SpawnProcess(
     const Project& project,
     std::shared_ptr<ExecPayload> payload)
 {
-    // Build command args
     std::vector<std::string> args;
     if (!agent.args.empty()) {
         std::istringstream ss(agent.args);
@@ -91,7 +120,6 @@ void Executor::SpawnProcess(
     };
 
     auto on_exit = [this, payload](const std::string& pid, int code) {
-        // Update execution status
         {
             std::lock_guard<std::mutex> lock(mu_);
             for (auto& e : executions_) {
@@ -104,17 +132,6 @@ void Executor::SpawnProcess(
             }
         }
 
-        // Update subtask status in task file
-        auto task_path = payload->project_tasks_path + "/" + payload->task_id + "-" + payload->task_title + ".md";
-        auto sanitized = task_path;
-        for (auto& c : sanitized) {
-            if (c == ' ' || c == '/' || c == '\\' || c == ':' ||
-                c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|') {
-                c = '-';
-            }
-        }
-
-        // Find matching task file
         auto task_files = FileSystem::ListFiles(payload->project_tasks_path, ".md");
         std::string found_path;
         for (const auto& f : task_files) {
@@ -137,7 +154,6 @@ void Executor::SpawnProcess(
             auto updated = MarkdownWriter::UpdateSubtaskStatus(
                 content, payload->subtask_id, new_status, result_str);
 
-            // Add exec log as conversation message
             updated = MarkdownWriter::AddConversationMsg(
                 updated, payload->subtask_id, payload->agent_id,
                 NowShort(),
@@ -145,9 +161,16 @@ void Executor::SpawnProcess(
                             : "❌ 失败，exit:" + std::to_string(code),
                 false);
 
+            // Collect diff if successful
+            if (code == 0 && on_diff_available_) {
+                std::string diff = GetGitDiff(payload->project_repo);
+                if (!diff.empty()) {
+                    on_diff_available_(diff, payload->subtask_id);
+                }
+            }
+
             FileSystem::WriteFile(found_path, updated);
 
-            // Write audit
             tm_.AppendAudit(payload->project_audit_path, NowShort(),
                 (code == 0) ? "subtask_complete" : "subtask_fail",
                 payload->agent_id,
@@ -155,7 +178,6 @@ void Executor::SpawnProcess(
                 " (exit:" + std::to_string(code) + ")");
         }
 
-        // Notify status change
         {
             std::lock_guard<std::mutex> lock(mu_);
             for (auto& e : executions_) {
@@ -203,6 +225,29 @@ void Executor::Execute(
     const auto* sub = task.FindSubtask(subtask_id);
     if (!sub) return;
 
+    // Approval gate check
+    if (ApprovalGate::NeedsApproval(*sub, agent)) {
+        auto task_paths = FileSystem::ListFiles(project.tasks_path, ".md");
+        for (const auto& f : task_paths) {
+            auto content = FileSystem::ReadFile(f);
+            if (content.empty()) continue;
+            auto parsed = MarkdownParser::ParseTask(content);
+            if (parsed.id == task.id) {
+                auto risk_str = ApprovalGate::RiskToString(
+                    static_cast<ApprovalGate::RiskLevel>(sub->risk));
+                auto updated = MarkdownWriter::UpdateSubtaskStatus(
+                    content, subtask_id, "review",
+                    std::string("Waiting for approval (risk: ") + risk_str + ")");
+                FileSystem::WriteFile(f, updated);
+                break;
+            }
+        }
+        tm_.AppendAudit(project.AuditFilePath(), NowShort(),
+            "subtask_execute", agent.id,
+            subtask_id + " → " + agent.id + " (pending approval)");
+        return;
+    }
+
     auto id = NextExecutionId();
 
     Execution exec;
@@ -220,7 +265,6 @@ void Executor::Execute(
         executions_.push_back(exec);
     }
 
-    // Update execution start time
     {
         std::lock_guard<std::mutex> lock(mu_);
         for (auto& e : executions_) {
@@ -244,9 +288,8 @@ void Executor::Execute(
     payload->project_audit_path = project.AuditFilePath();
     payload->project_codeyoyo_path = project.codeyoyo_path;
 
-    std::string prompt = BuildPrompt(*sub, agent);
+    std::string prompt = BuildPrompt(*sub, agent, skill_mgr_);
 
-    // Write audit - execution started
     tm_.AppendAudit(project.AuditFilePath(), NowShort(), "subtask_execute",
         agent.id, sub->id + " → " + agent.id);
 

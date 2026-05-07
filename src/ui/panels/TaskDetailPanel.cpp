@@ -53,10 +53,20 @@ void TaskDetailPanel::Render(ProjectManager& pm, TaskManager& tm,
     RenderConversation(sub);
     ImGui::Separator();
 
-    // Reply input
+    // Reply input with @autocomplete
     ImGui::Text("Reply:");
     ImGui::InputTextMultiline("##reply", reply_input_, sizeof(reply_input_),
         ImVec2(-1, 60), ImGuiInputTextFlags_AllowTabInput);
+
+    // Detect @ for autocomplete
+    std::string input(reply_input_);
+    auto at_pos = input.rfind('@');
+    if (at_pos != std::string::npos) {
+        std::string partial = input.substr(at_pos + 1);
+        ShowAgentAutocomplete(partial, agent_mgr);
+    } else {
+        show_autocomplete_ = false;
+    }
 
     ImGui::BeginDisabled(std::string(reply_input_).empty());
     if (ImGui::Button("Send Reply", ImVec2(120, 0))) {
@@ -73,6 +83,9 @@ void TaskDetailPanel::Render(ProjectManager& pm, TaskManager& tm,
 
         tm.AppendAudit(project->AuditFilePath(), tm.Now(), "subtask_reply",
                        "user", "@" + sub.id + " " + body);
+
+        // Trigger agent execution if @agent detected
+        HandleAgentTrigger(body, sub, task, exec, agent_mgr, *project);
 
         reply_input_[0] = '\0';
     }
@@ -98,6 +111,77 @@ void TaskDetailPanel::Render(ProjectManager& pm, TaskManager& tm,
 
     ImGui::End();
     ImGui::PopStyleVar();
+}
+
+void TaskDetailPanel::ShowAgentAutocomplete(const std::string& partial,
+    AgentManager& agent_mgr)
+{
+    auto& agents = agent_mgr.GetGlobalAgents();
+
+    std::vector<Agent*> matches;
+    for (auto& a : agents) {
+        if (!a.enabled) continue;
+        if (partial.empty() ||
+            a.id.find(partial) == 0 ||
+            a.name.find(partial) == 0) {
+            matches.push_back(&a);
+        }
+    }
+
+    if (matches.empty()) {
+        show_autocomplete_ = false;
+        return;
+    }
+
+    show_autocomplete_ = true;
+    ImGui::SameLine();
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, IM_COL32(20, 20, 28, 240));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 4.0f);
+    ImGui::BeginChild("##agent_complete",
+        ImVec2(200, 28.0f * (int)matches.size() + 4),
+        true, ImGuiWindowFlags_Tooltip);
+
+    for (int i = 0; i < (int)matches.size(); i++) {
+        auto* a = matches[i];
+        bool selected = false;
+        std::string label = a->id + " (" + a->name + ")";
+        if (ImGui::Selectable(label.c_str(), &selected)) {
+            auto at_pos = std::string(reply_input_).rfind('@');
+            std::string new_input = std::string(reply_input_).substr(0, at_pos + 1)
+                + a->id + " ";
+            strncpy(reply_input_, new_input.c_str(), sizeof(reply_input_) - 1);
+            show_autocomplete_ = false;
+        }
+    }
+
+    ImGui::EndChild();
+    ImGui::PopStyleVar();
+    ImGui::PopStyleColor();
+}
+
+void TaskDetailPanel::HandleAgentTrigger(const std::string& body,
+    Subtask& sub, const Task& task,
+    Executor& exec, AgentManager& agent_mgr, const Project& project)
+{
+    auto at_pos = body.find('@');
+    if (at_pos == std::string::npos) return;
+
+    auto after_at = body.substr(at_pos + 1);
+    auto space = after_at.find(' ');
+    std::string agent_id = (space == std::string::npos) ? after_at : after_at.substr(0, space);
+
+    auto* agent = agent_mgr.FindAgent(agent_id);
+    if (!agent || !agent->enabled) return;
+
+    auto task_path = project.TaskFilePath(task.id, task.title);
+    auto content = FileSystem::ReadFile(task_path);
+    if (!content.empty()) {
+        auto updated = MarkdownWriter::UpdateSubtaskStatus(
+            content, sub.id, "in_progress", "");
+        FileSystem::WriteFile(task_path, updated);
+    }
+
+    exec.Execute(task, sub.id, *agent, project);
 }
 
 void TaskDetailPanel::RenderSubtaskDetail(const Task& task, Subtask& sub,
@@ -148,6 +232,7 @@ void TaskDetailPanel::RenderSubtaskDetail(const Task& task, Subtask& sub,
             ImGui::PushItemWidth(160);
             if (ImGui::BeginCombo("##agent_selector", agent_buf_)) {
                 for (const auto& a : agents) {
+                    if (!a.enabled) continue;
                     bool is_selected = (strcmp(agent_buf_, a.id.c_str()) == 0);
                     if (ImGui::Selectable(a.id.c_str(), is_selected)) {
                         strncpy(agent_buf_, a.id.c_str(), sizeof(agent_buf_) - 1);
@@ -211,6 +296,34 @@ void TaskDetailPanel::RenderSubtaskDetail(const Task& task, Subtask& sub,
         if (has_running_exec) {
             if (ImGui::Button("Cancel Exec", ImVec2(100, 0))) {
                 exec.Cancel(running_exec_id);
+            }
+        }
+    }
+
+    // Review status: approval buttons
+    if (sub.status == SubtaskStatus::Review) {
+        ImGui::TextColored(ImVec4(0.9f, 0.7f, 0.2f, 1), "⚠ Pending Approval");
+        ImGui::SameLine();
+        ImGui::TextDisabled("(risk: %s)", risk_str.c_str());
+
+        if (ImGui::Button("Approve", ImVec2(100, 0))) {
+            auto task_path = project.TaskFilePath(task.id, task.title);
+            auto content = FileSystem::ReadFile(task_path);
+            if (!content.empty()) {
+                auto updated = MarkdownWriter::UpdateSubtaskStatus(
+                    content, sub.id, "in_progress", "");
+                FileSystem::WriteFile(task_path, updated);
+                exec.Execute(task, sub.id, *agent_mgr.FindAgent(agent_buf_), project);
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Reject", ImVec2(100, 0))) {
+            auto task_path = project.TaskFilePath(task.id, task.title);
+            auto content = FileSystem::ReadFile(task_path);
+            if (!content.empty()) {
+                auto updated = MarkdownWriter::UpdateSubtaskStatus(
+                    content, sub.id, "cancelled", "rejected by user");
+                FileSystem::WriteFile(task_path, updated);
             }
         }
     }

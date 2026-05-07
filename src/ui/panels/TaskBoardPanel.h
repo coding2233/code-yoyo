@@ -18,9 +18,6 @@ public:
     Subtask* GetSelectedSubtask() const { return selected_subtask_; }
 
 private:
-    void RenderKanbanColumn(const std::string& title, const std::string& status,
-                            const std::vector<Subtask>& subtasks,
-                            SubtaskStatus filter_status);
     void RenderCard(const Subtask& sub);
 
     bool open_ = true;
