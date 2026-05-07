@@ -1,5 +1,4 @@
 #include "AgentConsolePanel.h"
-#include "core/Executor.h"
 #include "ui/LayoutManager.h"
 #include "ui/Theme.h"
 #include <sstream>

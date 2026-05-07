@@ -3,13 +3,12 @@
 #include <string>
 #include <vector>
 #include <imgui.h>
-
-class Executor;
-class LayoutManager;
+#include "core/Executor.h"
+#include "ui/LayoutManager.h"
 
 class AgentConsolePanel {
 public:
-    void Render(const std::vector<class Executor::Execution>& executions, const LayoutManager& layout);
+    void Render(const std::vector<Executor::Execution>& executions, const LayoutManager& layout);
     void SetOpen(bool o) { open_ = o; }
     bool IsOpen() const { return open_; }
 
@@ -18,7 +17,7 @@ private:
     bool auto_scroll_ = true;
     int selected_execution_ = -1;
 
-    void RenderExecutionRow(const class Executor::Execution& exec, int index);
-    const char* StatusIcon(const class Executor::Execution& exec) const;
-    ImU32 StatusColor(const class Executor::Execution& exec) const;
+    void RenderExecutionRow(const Executor::Execution& exec, int index);
+    const char* StatusIcon(const Executor::Execution& exec) const;
+    ImU32 StatusColor(const Executor::Execution& exec) const;
 };

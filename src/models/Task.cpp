@@ -7,6 +7,13 @@ Subtask* Task::FindSubtask(const std::string& sid) {
     return nullptr;
 }
 
+const Subtask* Task::FindSubtask(const std::string& sid) const {
+    for (const auto& s : subtasks) {
+        if (s.id == sid) return &s;
+    }
+    return nullptr;
+}
+
 SubtaskStatus Task::ParseStatus(const std::string& s) const {
     if (s == "pending") return SubtaskStatus::Pending;
     if (s == "in_progress") return SubtaskStatus::InProgress;

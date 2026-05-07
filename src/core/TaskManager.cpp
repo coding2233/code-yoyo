@@ -5,13 +5,14 @@
 #include <sstream>
 #include <ctime>
 #include <iomanip>
+#include <filesystem>
 
 Task TaskManager::CreateTask(const std::string& project_path,
                               const std::string& title,
                               const std::string& description)
 {
     Task task;
-    task.id = "TASK-001"; // Will be replaced by caller
+    task.id = GenerateTaskId({});
     task.title = title;
     task.description = description;
     task.status = "planning";
@@ -34,7 +35,7 @@ Subtask TaskManager::CreateSubtask(const std::string& title,
                                     const std::string& assignee)
 {
     Subtask sub;
-    sub.id = "ST-001";
+    sub.id = GenerateSubtaskId({});
     sub.title = title;
     sub.description = description;
     sub.assignee = assignee;

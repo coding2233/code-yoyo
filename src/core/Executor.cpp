@@ -200,7 +200,7 @@ void Executor::Execute(
     const Agent& agent,
     const Project& project)
 {
-    auto* sub = task.FindSubtask(subtask_id);
+    const auto* sub = task.FindSubtask(subtask_id);
     if (!sub) return;
 
     auto id = NextExecutionId();

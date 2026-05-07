@@ -64,10 +64,13 @@ struct Task {
     std::string timezone;
     std::string next_run;
     std::string last_run;
+    std::string assignee;
+    std::string auto_approve;
 
     std::vector<Subtask> subtasks;
 
     Subtask* FindSubtask(const std::string& sid);
+    const Subtask* FindSubtask(const std::string& sid) const;
     SubtaskStatus ParseStatus(const std::string& s) const;
     std::string StatusString(SubtaskStatus s) const;
 };

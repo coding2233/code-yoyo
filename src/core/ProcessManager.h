@@ -12,6 +12,10 @@
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>
+#else
+#include <termios.h>
+#include <unistd.h>
+#include <sys/types.h>
 #endif
 
 class ProcessManager {
@@ -41,6 +45,9 @@ private:
         HPCON h_pc = nullptr;
         HANDLE h_stdin_write = nullptr;
         HANDLE h_stdout_read = nullptr;
+#else
+        int master_fd = -1;
+        pid_t child_pid = -1;
 #endif
         std::thread worker;
         std::atomic<bool> finished{false};

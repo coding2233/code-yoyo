@@ -34,8 +34,7 @@ void ApplyDark() {
     colors[ImGuiCol_ScrollbarGrab]     = ImVec4(0.24f, 0.24f, 0.28f, 1.00f);
     colors[ImGuiCol_ScrollbarGrabHovered] = ImVec4(0.30f, 0.30f, 0.34f, 1.00f);
     colors[ImGuiCol_ScrollbarGrabActive]  = ImVec4(0.36f, 0.36f, 0.40f, 1.00f);
-    colors[ImGuiCol_DockingPreview]    = ImVec4(0.30f, 0.50f, 0.80f, 0.60f);
-    colors[ImGuiCol_DockingEmptyBg]    = ImVec4(0.08f, 0.08f, 0.10f, 1.00f);
+    
 
     style.WindowRounding    = 4.0f;
     style.ChildRounding     = 4.0f;

@@ -18,7 +18,7 @@ void LayoutManager::EndFrame() {
 ImRect LayoutManager::GetPanelRect(PanelArea area) const {
     auto viewport = ImGui::GetMainViewport();
     ImVec2 vp_min = viewport->Pos;
-    ImVec2 vp_max = viewport->Pos + viewport->Size;
+    ImVec2 vp_max = ImVec2(viewport->Pos.x + viewport->Size.x, viewport->Pos.y + viewport->Size.y);
 
     float top_offset = topbar_height_;
 
