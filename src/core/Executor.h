@@ -2,6 +2,7 @@
 
 #include <string>
 #include <vector>
+#include <set>
 #include <functional>
 #include <memory>
 #include <mutex>
@@ -49,6 +50,15 @@ public:
         const Project& project
     );
 
+    void Enqueue(
+        const Task& task,
+        const std::string& subtask_id,
+        const Agent& agent,
+        const Project& project
+    );
+
+    void ProcessQueue();
+
     void Cancel(const std::string& execution_id);
 
     std::vector<Execution> GetExecutions() const;
@@ -62,6 +72,13 @@ public:
     void SetOnDiffAvailable(DiffCallback cb) { on_diff_available_ = std::move(cb); }
 
 private:
+    struct QueuedSubtask {
+        Task task;
+        std::string subtask_id;
+        Agent agent;
+        Project project;
+    };
+
     ProcessManager& pm_;
     TaskManager& tm_;
     SkillManager* skill_mgr_ = nullptr;
@@ -69,12 +86,20 @@ private:
     mutable std::mutex mu_;
     std::vector<Execution> executions_;
 
+    std::vector<QueuedSubtask> queue_;
+    std::mutex queue_mu_;
+    std::set<std::string> completed_subtasks_;
+
     ExecCallback on_output_;
     ExecCallback on_status_change_;
     DiffCallback on_diff_available_;
 
     std::string NextExecutionId();
     std::string GetGitDiff(const std::string& repo_path);
+    bool CanExecute(const Task& task, const std::string& subtask_id);
+    bool HasSerialSubtaskRunning(const std::string& task_id);
+    void DoExecute(const Task& task, const std::string& subtask_id,
+                   const Agent& agent, const Project& project);
 
     struct ExecPayload {
         std::string exec_id;

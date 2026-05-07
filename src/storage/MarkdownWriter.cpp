@@ -159,6 +159,110 @@ std::string MarkdownWriter::UpdateSchedule(
     return out.str();
 }
 
+std::string MarkdownWriter::UpdateTaskSubtasks(
+    const std::string& content,
+    const std::vector<Subtask>& subtasks)
+{
+    std::istringstream in(content);
+    std::ostringstream out;
+    std::string line;
+    bool in_subtasks = false;
+    bool subtasks_replaced = false;
+
+    while (std::getline(in, line)) {
+        if (line.find("## Subtasks") == 0) {
+            in_subtasks = true;
+            subtasks_replaced = true;
+            out << "## Subtasks\n\n";
+            for (const auto& sub : subtasks) {
+                auto risk_str = [](RiskLevel r) {
+                    switch (r) { case RiskLevel::Low: return "low"; case RiskLevel::Medium: return "medium"; case RiskLevel::High: return "high"; }
+                    return "medium";
+                };
+                auto status_str = [](SubtaskStatus s) {
+                    switch (s) { case SubtaskStatus::Pending: return "pending"; case SubtaskStatus::InProgress: return "in_progress"; case SubtaskStatus::Review: return "review"; case SubtaskStatus::Completed: return "completed"; case SubtaskStatus::Failed: return "failed"; case SubtaskStatus::Cancelled: return "cancelled"; }
+                    return "pending";
+                };
+                auto approval_str = [](ApprovalMode a) {
+                    switch (a) { case ApprovalMode::Auto: return "auto"; case ApprovalMode::Confirm: return "confirm"; case ApprovalMode::AgentDecides: return "agent_decides"; }
+                    return "auto";
+                };
+                auto exec_str = [](ExecMode e) {
+                    switch (e) { case ExecMode::Parallel: return "parallel"; case ExecMode::Serial: return "serial"; }
+                    return "serial";
+                };
+
+                out << "### " << sub.id << ": " << sub.title << "\n\n";
+                out << "- **status**: " << status_str(sub.status) << "\n";
+                if (!sub.assignee.empty()) out << "- **assignee**: " << sub.assignee << "\n";
+                out << "- **risk**: " << risk_str(sub.risk) << "\n";
+                out << "- **approval**: " << approval_str(sub.approval) << "\n";
+                out << "- **execution**: " << exec_str(sub.exec_mode) << "\n";
+                if (!sub.depends.empty()) {
+                    out << "- **depends**: ";
+                    for (size_t d = 0; d < sub.depends.size(); d++) {
+                        if (d > 0) out << ", ";
+                        out << sub.depends[d];
+                    }
+                    out << "\n";
+                }
+                if (!sub.result.empty()) out << "- **result**: " << sub.result << "\n";
+                if (!sub.description.empty()) {
+                    out << "\n" << sub.description << "\n";
+                }
+                out << "\n---\n\n";
+            }
+            // Skip old subtask lines
+            while (std::getline(in, line)) {
+                if (line.find("## ") == 0) {
+                    // Reached next section, write it and continue
+                    out << line << "\n";
+                    in_subtasks = false;
+                    break;
+                }
+            }
+            continue;
+        }
+        if (!in_subtasks) {
+            out << line << "\n";
+        }
+    }
+
+    if (!subtasks_replaced) {
+        out << "## Subtasks\n\n";
+        for (const auto& sub : subtasks) {
+            auto risk_str = [](RiskLevel r) {
+                switch (r) { case RiskLevel::Low: return "low"; case RiskLevel::Medium: return "medium"; case RiskLevel::High: return "high"; }
+                return "medium";
+            };
+            auto status_str = [](SubtaskStatus s) {
+                switch (s) { case SubtaskStatus::Pending: return "pending"; case SubtaskStatus::InProgress: return "in_progress"; case SubtaskStatus::Review: return "review"; case SubtaskStatus::Completed: return "completed"; case SubtaskStatus::Failed: return "failed"; case SubtaskStatus::Cancelled: return "cancelled"; }
+                return "pending";
+            };
+            auto approval_str = [](ApprovalMode a) {
+                switch (a) { case ApprovalMode::Auto: return "auto"; case ApprovalMode::Confirm: return "confirm"; case ApprovalMode::AgentDecides: return "agent_decides"; }
+                return "auto";
+            };
+            auto exec_str = [](ExecMode e) {
+                switch (e) { case ExecMode::Parallel: return "parallel"; case ExecMode::Serial: return "serial"; }
+                return "serial";
+            };
+            out << "### " << sub.id << ": " << sub.title << "\n\n";
+            out << "- **status**: " << status_str(sub.status) << "\n";
+            if (!sub.assignee.empty()) out << "- **assignee**: " << sub.assignee << "\n";
+            out << "- **risk**: " << risk_str(sub.risk) << "\n";
+            out << "- **approval**: " << approval_str(sub.approval) << "\n";
+            out << "- **execution**: " << exec_str(sub.exec_mode) << "\n";
+            if (!sub.description.empty()) {
+                out << "\n" << sub.description << "\n";
+            }
+            out << "\n---\n\n";
+        }
+    }
+
+    return out.str();
+}
+
 std::string MarkdownWriter::FormatAuditEntry(
     const std::string& timestamp,
     const std::string& action,

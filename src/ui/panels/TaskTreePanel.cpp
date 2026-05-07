@@ -8,20 +8,13 @@
 void TaskTreePanel::Render(ProjectManager& pm, const LayoutManager& layout) {
     if (!open_) return;
 
-    auto rect = layout.GetPanelRect(PanelArea::Center);
-    ImGui::SetNextWindowPos(rect.Min);
-    ImGui::SetNextWindowSize(rect.GetSize());
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
-
     ImGui::Begin("Task Tree", &open_,
-        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBringToFrontOnFocus);
+        ImGuiWindowFlags_NoCollapse);
 
     auto* project = pm.GetActiveProject();
     if (!project) {
         ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.6f, 1), "Select a project to get started.");
         ImGui::End();
-        ImGui::PopStyleVar();
         return;
     }
 
@@ -87,5 +80,4 @@ void TaskTreePanel::Render(ProjectManager& pm, const LayoutManager& layout) {
     }
 
     ImGui::End();
-    ImGui::PopStyleVar();
 }

@@ -28,19 +28,12 @@ ImU32 AgentConsolePanel::StatusColor(const Executor::Execution& exec) const {
 void AgentConsolePanel::Render(const std::vector<Executor::Execution>& executions, const LayoutManager& layout) {
     if (!open_) return;
 
-    auto rect = layout.GetPanelRect(PanelArea::Bottom);
-    ImGui::SetNextWindowPos(rect.Min);
-    ImGui::SetNextWindowSize(rect.GetSize());
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
-
     ImGui::Begin("Agent Console", &open_,
-        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBringToFrontOnFocus);
+        ImGuiWindowFlags_NoCollapse);
 
     if (executions.empty()) {
         ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.6f, 1), "No executions yet. Select a subtask and run it.");
         ImGui::End();
-        ImGui::PopStyleVar();
         return;
     }
 
@@ -132,5 +125,4 @@ void AgentConsolePanel::Render(const std::vector<Executor::Execution>& execution
     }
 
     ImGui::End();
-    ImGui::PopStyleVar();
 }

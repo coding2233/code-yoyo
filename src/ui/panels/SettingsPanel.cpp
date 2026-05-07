@@ -7,14 +7,8 @@
 void SettingsPanel::Render(AgentManager& agent_mgr, SkillManager& skill_mgr, const LayoutManager& layout) {
     if (!open_) return;
 
-    auto rect = layout.GetPanelRect(PanelArea::Center);
-    ImGui::SetNextWindowPos(rect.Min);
-    ImGui::SetNextWindowSize(rect.GetSize());
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
-
     ImGui::Begin("Settings", &open_,
-        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBringToFrontOnFocus);
+        ImGuiWindowFlags_NoCollapse);
 
     const char* tabs[] = { "Agents", "Skills" };
     for (int i = 0; i < 2; i++) {
@@ -32,7 +26,6 @@ void SettingsPanel::Render(AgentManager& agent_mgr, SkillManager& skill_mgr, con
     }
 
     ImGui::End();
-    ImGui::PopStyleVar();
 }
 
 void SettingsPanel::RenderAgentsTab(AgentManager& agent_mgr) {

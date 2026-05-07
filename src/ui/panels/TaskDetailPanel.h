@@ -27,6 +27,9 @@ private:
     void ShowAgentAutocomplete(const std::string& partial, AgentManager& agent_mgr);
     void HandleAgentTrigger(const std::string& body, Subtask& sub, const Task& task,
         Executor& exec, AgentManager& agent_mgr, const Project& project);
+    void TriggerDecompose(Task& task, const Project& project,
+        Executor& exec, AgentManager& agent_mgr, TaskManager& tm);
+    static std::vector<Subtask> DecomposeTaskLocal(const std::string& description);
 
     bool open_ = true;
     Task* current_task_ = nullptr;
@@ -36,4 +39,5 @@ private:
 
     bool show_autocomplete_ = false;
     int autocomplete_cursor_ = 0;
+    bool show_decompose_popup_ = false;
 };

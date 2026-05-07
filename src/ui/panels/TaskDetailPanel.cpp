@@ -10,26 +10,20 @@
 #include "ui/Theme.h"
 #include <sstream>
 #include <cstring>
+#include <algorithm>
 
 void TaskDetailPanel::Render(ProjectManager& pm, TaskManager& tm,
     Executor& exec, AgentManager& agent_mgr, const LayoutManager& layout)
 {
     if (!open_) return;
 
-    auto rect = layout.GetPanelRect(PanelArea::Right);
-    ImGui::SetNextWindowPos(rect.Min);
-    ImGui::SetNextWindowSize(rect.GetSize());
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
-
     ImGui::Begin("Task Detail", &open_,
-        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBringToFrontOnFocus);
+        ImGuiWindowFlags_NoCollapse);
 
     if (!current_task_ || !current_subtask_) {
         ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.6f, 1),
             "Select a subtask from the board to view details.");
         ImGui::End();
-        ImGui::PopStyleVar();
         return;
     }
 
@@ -37,7 +31,6 @@ void TaskDetailPanel::Render(ProjectManager& pm, TaskManager& tm,
     if (!project) {
         ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.6f, 1), "No active project.");
         ImGui::End();
-        ImGui::PopStyleVar();
         return;
     }
 
@@ -45,6 +38,45 @@ void TaskDetailPanel::Render(ProjectManager& pm, TaskManager& tm,
     auto& sub = *current_subtask_;
 
     ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1), "%s: %s", task.id.c_str(), task.title.c_str());
+
+    if (task.subtasks.size() <= 1 && sub.status == SubtaskStatus::Pending) {
+        ImGui::SameLine();
+        if (ImGui::SmallButton("AI Decompose")) {
+            show_decompose_popup_ = true;
+        }
+        if (show_decompose_popup_) {
+            ImGui::OpenPopup("Decompose Task");
+            show_decompose_popup_ = false;
+        }
+    }
+
+    if (ImGui::BeginPopupModal("Decompose Task", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::TextWrapped("Decompose '%s' into subtasks using AI or local rules?", task.title.c_str());
+        ImGui::Separator();
+        if (ImGui::Button("Use AI (first available agent)", ImVec2(200, 0))) {
+            TriggerDecompose(task, *project, exec, agent_mgr, tm);
+            ImGui::CloseCurrentPopup();
+        }
+        if (ImGui::Button("Local (split by sentence)", ImVec2(200, 0))) {
+            auto new_subs = DecomposeTaskLocal(task.description);
+            for (auto& ns : new_subs) {
+                task.subtasks.push_back(ns);
+            }
+            auto task_path = project->TaskFilePath(task.id, task.title);
+            auto content = FileSystem::ReadFile(task_path);
+            if (!content.empty()) {
+                auto updated = MarkdownWriter::UpdateTaskSubtasks(content, task.subtasks);
+                FileSystem::WriteFile(task_path, updated);
+            }
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::Separator();
+        if (ImGui::Button("Cancel", ImVec2(200, 0))) {
+            ImGui::CloseCurrentPopup();
+        }
+        ImGui::EndPopup();
+    }
+
     ImGui::Separator();
 
     RenderSubtaskDetail(task, sub, exec, agent_mgr, *project);
@@ -110,7 +142,6 @@ void TaskDetailPanel::Render(ProjectManager& pm, TaskManager& tm,
     }
 
     ImGui::End();
-    ImGui::PopStyleVar();
 }
 
 void TaskDetailPanel::ShowAgentAutocomplete(const std::string& partial,
@@ -369,6 +400,96 @@ void TaskDetailPanel::RenderConversation(const Subtask& sub) {
             }
 
             ImGui::Spacing();
+        }
+    }
+}
+
+std::vector<Subtask> TaskDetailPanel::DecomposeTaskLocal(const std::string& description) {
+    std::vector<Subtask> subs;
+    if (description.empty()) {
+        Subtask s;
+        s.id = "ST-001";
+        s.title = "Implement task";
+        s.description = "";
+        s.risk = RiskLevel::Medium;
+        subs.push_back(s);
+        return subs;
+    }
+
+    std::istringstream stream(description);
+    std::string line;
+    int count = 1;
+    while (std::getline(stream, line)) {
+        auto trimmed = line;
+        trimmed.erase(0, trimmed.find_first_not_of(" \t\r\n"));
+        trimmed.erase(trimmed.find_last_not_of(" \t\r\n") + 1);
+        if (trimmed.size() < 20) continue;
+
+        Subtask s;
+        char id_buf[16];
+        snprintf(id_buf, sizeof(id_buf), "ST-%03d", count);
+        s.id = id_buf;
+        s.title = trimmed.size() > 40 ? trimmed.substr(0, 40) + "..." : trimmed;
+        s.description = trimmed;
+        s.risk = RiskLevel::Medium;
+        subs.push_back(s);
+        count++;
+    }
+
+    if (subs.empty()) {
+        Subtask s;
+        s.id = "ST-001";
+        s.title = "Implement " + (description.size() > 40 ? description.substr(0, 40) + "..." : description);
+        s.description = description;
+        s.risk = RiskLevel::Medium;
+        subs.push_back(s);
+    }
+
+    return subs;
+}
+
+void TaskDetailPanel::TriggerDecompose(Task& task, const Project& project,
+    Executor& exec, AgentManager& agent_mgr, TaskManager& tm)
+{
+    auto* agent = agent_mgr.FindAgent("opencode");
+    if (!agent || !agent->enabled) {
+        agent = nullptr;
+        for (auto& a : agent_mgr.GetGlobalAgents()) {
+            if (a.enabled) {
+                agent = &a;
+                break;
+            }
+        }
+    }
+
+    std::string decompose_prompt =
+        "\u8BF7\u5C06\u4EE5\u4E0B\u9700\u6C42\u62C6\u89E3\u4E3A\u591A\u4E2A\u5B50\u4EFB\u52A1\uFF08Subtask\uFF09\uFF0C\u6BCF\u4E2A\u5B50\u4EFB\u52A1\u5305\u542B\u6807\u9898\u3001\u63CF\u8FF0\u3001\u98CE\u9669\u7EA7\u522B\uFF08low/medium/high\uFF09\u3002"
+        "\u8BF7\u4EE5 Markdown \u5217\u8868\u683C\u5F0F\u8FD4\u56DE\uFF1A\n\n"
+        "- ST-001: <title>\n"
+        "  - description: <desc>\n"
+        "  - risk: <level>\n\n"
+        "\u9700\u6C42\u63CF\u8FF0\uFF1A\n" + task.description;
+
+    if (agent && agent->enabled) {
+        std::string fake_id = "decompose-" + task.id;
+        Subtask decompose_sub;
+        decompose_sub.id = fake_id;
+        decompose_sub.title = "AI Decompose: " + task.title;
+        decompose_sub.description = decompose_prompt;
+        decompose_sub.risk = RiskLevel::Low;
+        task.subtasks.insert(task.subtasks.begin(), decompose_sub);
+
+        exec.Execute(task, fake_id, *agent, project);
+    } else {
+        auto new_subs = DecomposeTaskLocal(task.description);
+        for (auto& ns : new_subs) {
+            task.subtasks.push_back(ns);
+        }
+        auto task_path = project.TaskFilePath(task.id, task.title);
+        auto content = FileSystem::ReadFile(task_path);
+        if (!content.empty()) {
+            auto updated = MarkdownWriter::UpdateTaskSubtasks(content, task.subtasks);
+            FileSystem::WriteFile(task_path, updated);
         }
     }
 }

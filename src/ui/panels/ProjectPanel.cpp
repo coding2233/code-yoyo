@@ -7,14 +7,8 @@
 void ProjectPanel::Render(ProjectManager& pm, const LayoutManager& layout) {
     if (!open_) return;
 
-    auto rect = layout.GetPanelRect(PanelArea::Left);
-    ImGui::SetNextWindowPos(rect.Min);
-    ImGui::SetNextWindowSize(rect.GetSize());
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
-
     ImGui::Begin("Projects", &open_,
-        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBringToFrontOnFocus);
+        ImGuiWindowFlags_NoCollapse);
 
     if (ImGui::Button("+ New Project", ImVec2(-1, 0))) {
         show_new_popup_ = true;
@@ -58,7 +52,6 @@ void ProjectPanel::Render(ProjectManager& pm, const LayoutManager& layout) {
     RenderNewProjectPopup(pm);
 
     ImGui::End();
-    ImGui::PopStyleVar();
 }
 
 void ProjectPanel::RenderNewProjectPopup(ProjectManager& pm) {

@@ -7,7 +7,7 @@ target("CodeYoYo")
     add_packages("libsdl3", "imgui")
     add_files("src/**.cpp")
     add_includedirs("src", {public = true})
-    add_defines("LOG_USE_COLOR")
+    add_defines("LOG_USE_COLOR", "IMGUI_ENABLE_DOCKING")
 
     if is_plat("windows") then
         add_syslinks("kernel32", "user32", "gdi32", "ole32")

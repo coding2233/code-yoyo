@@ -11,20 +11,13 @@
 void TaskBoardPanel::Render(ProjectManager& pm, TaskManager& tm, const LayoutManager& layout) {
     if (!open_) return;
 
-    auto rect = layout.GetPanelRect(PanelArea::Center);
-    ImGui::SetNextWindowPos(rect.Min);
-    ImGui::SetNextWindowSize(rect.GetSize());
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
-
     ImGui::Begin("Task Board", &open_,
-        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBringToFrontOnFocus);
+        ImGuiWindowFlags_NoCollapse);
 
     auto* project = pm.GetActiveProject();
     if (!project) {
         ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.6f, 1), "Select a project to get started.");
         ImGui::End();
-        ImGui::PopStyleVar();
         return;
     }
 
@@ -146,7 +139,6 @@ void TaskBoardPanel::Render(ProjectManager& pm, TaskManager& tm, const LayoutMan
     }
 
     ImGui::End();
-    ImGui::PopStyleVar();
 }
 
 void TaskBoardPanel::RenderCard(const Subtask& sub) {

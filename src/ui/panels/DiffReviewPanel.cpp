@@ -5,20 +5,13 @@
 void DiffReviewPanel::Render(const LayoutManager& layout) {
     if (!open_) return;
 
-    auto rect = layout.GetPanelRect(PanelArea::Center);
-    ImGui::SetNextWindowPos(rect.Min);
-    ImGui::SetNextWindowSize(rect.GetSize());
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0);
-
     ImGui::Begin("Diff Review", &open_,
-        ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize |
-        ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoBringToFrontOnFocus);
+        ImGuiWindowFlags_NoCollapse);
 
     if (diff_content_.empty()) {
         ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.6f, 1),
             "No diff to review. Run a subtask to see changes.");
         ImGui::End();
-        ImGui::PopStyleVar();
         return;
     }
 
@@ -72,5 +65,4 @@ void DiffReviewPanel::Render(const LayoutManager& layout) {
     }
 
     ImGui::End();
-    ImGui::PopStyleVar();
 }

@@ -32,6 +32,8 @@ protected:
     void OnCreate() override {
         Theme::ApplyDark();
 
+        ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+
         FileSystem::CreateDirs(FileSystem::GetCodeYoYoDir());
         FileSystem::CreateDirs(FileSystem::GetProjectsDir());
 
@@ -132,6 +134,10 @@ protected:
                     ImGui::MenuItem("Project Panel", nullptr, &show_project_panel_);
                     ImGui::MenuItem("Task Detail", nullptr, &show_detail_panel_);
                     ImGui::MenuItem("Agent Console", nullptr, &show_console_panel_);
+                    ImGui::Separator();
+                    if (ImGui::MenuItem("Reset Layout")) {
+                        layout_mgr_.ResetLayout();
+                    }
                     ImGui::EndMenu();
                 }
                 if (ImGui::BeginMenu("Tools")) {

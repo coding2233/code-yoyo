@@ -137,6 +137,13 @@ void Executor::SpawnProcess(
             }
         }
 
+        // Track completed subtask for dependency resolution
+        {
+            std::lock_guard<std::mutex> lock(queue_mu_);
+            completed_subtasks_.insert(payload->subtask_id);
+        }
+        ProcessQueue();
+
         auto task_files = FileSystem::ListFiles(payload->project_tasks_path, ".md");
         std::string found_path;
         for (const auto& f : task_files) {
@@ -252,6 +259,74 @@ void Executor::Execute(
             subtask_id + " → " + agent.id + " (pending approval)");
         return;
     }
+
+    Enqueue(task, subtask_id, agent, project);
+}
+
+void Executor::Enqueue(
+    const Task& task,
+    const std::string& subtask_id,
+    const Agent& agent,
+    const Project& project)
+{
+    {
+        std::lock_guard<std::mutex> lock(queue_mu_);
+        queue_.push_back({task, subtask_id, agent, project});
+    }
+    ProcessQueue();
+}
+
+void Executor::ProcessQueue() {
+    std::lock_guard<std::mutex> lock(queue_mu_);
+    for (auto it = queue_.begin(); it != queue_.end(); ) {
+        if (CanExecute(it->task, it->subtask_id)) {
+            bool blocked = false;
+            if (HasSerialSubtaskRunning(it->task.id)) {
+                auto* sub = it->task.FindSubtask(it->subtask_id);
+                if (sub && sub->exec_mode == ExecMode::Serial) {
+                    blocked = true;
+                }
+            }
+            if (!blocked) {
+                DoExecute(it->task, it->subtask_id, it->agent, it->project);
+                it = queue_.erase(it);
+                continue;
+            }
+        }
+        ++it;
+    }
+}
+
+bool Executor::CanExecute(const Task& task, const std::string& subtask_id) {
+    auto* sub = task.FindSubtask(subtask_id);
+    if (!sub) return false;
+
+    for (const auto& dep : sub->depends) {
+        if (completed_subtasks_.find(dep) == completed_subtasks_.end()) {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool Executor::HasSerialSubtaskRunning(const std::string& task_id) {
+    std::lock_guard<std::mutex> lock(mu_);
+    for (const auto& e : executions_) {
+        if (e.task_id == task_id && e.status == Execution::Running) {
+            return true;
+        }
+    }
+    return false;
+}
+
+void Executor::DoExecute(
+    const Task& task,
+    const std::string& subtask_id,
+    const Agent& agent,
+    const Project& project)
+{
+    const auto* sub = task.FindSubtask(subtask_id);
+    if (!sub) return;
 
     auto id = NextExecutionId();
 

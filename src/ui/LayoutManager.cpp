@@ -1,70 +1,68 @@
 #include "LayoutManager.h"
 
+static float topbar_height_ = 36.0f;
+static float menubar_height_ = 0.0f;
+
 void LayoutManager::Init() {
-    initialized_ = true;
+    initial_layout_done_ = false;
 }
 
 void LayoutManager::Shutdown() {
-    initialized_ = false;
 }
 
 void LayoutManager::BeginFrame() {
-    // No dockspace needed - panels position themselves
+    auto viewport = ImGui::GetMainViewport();
+    float menu_offset = menubar_height_ + topbar_height_;
+
+    ImGui::SetNextWindowPos(ImVec2(viewport->Pos.x, viewport->Pos.y + menu_offset));
+    ImGui::SetNextWindowSize(ImVec2(viewport->Size.x, viewport->Size.y - menu_offset));
+    ImGui::SetNextWindowViewport(viewport->ID);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 0.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 0.0f);
+
+    ImGuiWindowFlags flags = ImGuiWindowFlags_NoDocking |
+        ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoCollapse |
+        ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove |
+        ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoNavFocus;
+
+    ImGui::Begin("MainDockSpace", nullptr, flags);
+    ImGui::PopStyleVar(2);
+
+    ImGuiID dockspace_id = ImGui::GetID("MainDockSpace");
+    ImGui::DockSpace(dockspace_id, ImVec2(0.0f, 0.0f), ImGuiDockNodeFlags_PassthruCentralNode);
+
+    if (!initial_layout_done_ || reset_layout_) {
+        SetupInitialLayout();
+        initial_layout_done_ = true;
+        reset_layout_ = false;
+    }
 }
 
 void LayoutManager::EndFrame() {
+    ImGui::End();
 }
 
-ImRect LayoutManager::GetPanelRect(PanelArea area) const {
+void LayoutManager::SetupInitialLayout() {
     auto viewport = ImGui::GetMainViewport();
-    ImVec2 vp_min = viewport->Pos;
-    ImVec2 vp_max = ImVec2(viewport->Pos.x + viewport->Size.x, viewport->Pos.y + viewport->Size.y);
+    ImGuiID dockspace_id = ImGui::GetID("MainDockSpace");
 
-    float top_offset = topbar_height_ + menubar_height_;
+    ImGui::DockBuilderRemoveNode(dockspace_id);
+    ImGui::DockBuilderAddNode(dockspace_id, ImGuiDockNodeFlags_DockSpace);
+    ImGui::DockBuilderSetNodeSize(dockspace_id, viewport->Size);
 
-    // Calculate available space for content
-    float content_top = vp_min.y + top_offset;
-    float content_bottom = vp_max.y;
+    ImGuiID dock_left, dock_right, dock_bottom, dock_center;
+    ImGui::DockBuilderSplitNode(dockspace_id, ImGuiDir_Left, 0.15f, &dock_left, &dock_center);
+    ImGui::DockBuilderSplitNode(dock_center, ImGuiDir_Right, 0.25f, &dock_right, &dock_center);
+    ImGui::DockBuilderSplitNode(dock_center, ImGuiDir_Down, 0.25f, &dock_bottom, &dock_center);
 
-    // Bottom panel
-    if (show_bottom_) {
-        content_bottom -= bottom_height_;
-    }
+    ImGui::DockBuilderDockWindow("Projects", dock_left);
+    ImGui::DockBuilderDockWindow("Task Board", dock_center);
+    ImGui::DockBuilderDockWindow("Task Tree", dock_center);
+    ImGui::DockBuilderDockWindow("Scheduled Tasks", dock_center);
+    ImGui::DockBuilderDockWindow("Diff Review", dock_center);
+    ImGui::DockBuilderDockWindow("Settings", dock_center);
+    ImGui::DockBuilderDockWindow("Task Detail", dock_right);
+    ImGui::DockBuilderDockWindow("Agent Console", dock_bottom);
 
-    float left = vp_min.x;
-    float right = vp_max.x;
-
-    // Left panel
-    if (show_left_) {
-        left += left_width_;
-    }
-
-    // Right panel
-    if (show_right_) {
-        right -= right_width_;
-    }
-
-    switch (area) {
-        case PanelArea::Left:
-            return ImRect(
-                ImVec2(vp_min.x, content_top),
-                ImVec2(vp_min.x + (show_left_ ? left_width_ : 0), content_bottom)
-            );
-        case PanelArea::Center:
-            return ImRect(
-                ImVec2(left, content_top),
-                ImVec2(right, content_bottom)
-            );
-        case PanelArea::Right:
-            return ImRect(
-                ImVec2(vp_max.x - (show_right_ ? right_width_ : 0), content_top),
-                ImVec2(vp_max.x, content_bottom)
-            );
-        case PanelArea::Bottom:
-            return ImRect(
-                ImVec2(vp_min.x, vp_max.y - (show_bottom_ ? bottom_height_ : 0)),
-                ImVec2(vp_max.x, vp_max.y)
-            );
-    }
-    return ImRect(ImVec2(0, 0), ImVec2(0, 0));
+    ImGui::DockBuilderFinish(dockspace_id);
 }

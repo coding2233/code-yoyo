@@ -29,4 +29,8 @@ public:
                                          const std::string& action,
                                          const std::string& actor,
                                          const std::string& detail);
+
+    // Replace the full subtasks list in a task file
+    static std::string UpdateTaskSubtasks(const std::string& content,
+                                           const std::vector<Subtask>& subtasks);
 };
