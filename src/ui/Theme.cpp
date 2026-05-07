@@ -71,13 +71,13 @@ ImU32 ColorForRisk(const std::string& risk) {
 }
 
 const char* StatusIcon(const std::string& status) {
-    if (status == "pending")     return "○";
-    if (status == "in_progress") return "◉";
-    if (status == "review")      return "◐";
-    if (status == "completed")   return "●";
-    if (status == "failed")      return "✕";
-    if (status == "cancelled")   return "—";
-    return "○";
+    if (status == "pending")     return "\u25CB";
+    if (status == "in_progress") return "\u25C9";
+    if (status == "review")      return "\u25D0";
+    if (status == "completed")   return "\u25CF";
+    if (status == "failed")      return "\u2715";
+    if (status == "cancelled")   return "\u2014";
+    return "\u25CB";
 }
 
 }

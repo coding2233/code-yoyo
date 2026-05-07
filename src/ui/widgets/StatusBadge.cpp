@@ -25,7 +25,7 @@ void RenderRisk(const std::string& risk) {
         ((color >> 24) & 0xFF) / 255.0f,
         ((color >> 16) & 0xFF) / 255.0f,
         ((color >> 8) & 0xFF) / 255.0f, 1));
-    ImGui::Text("◈ %s", risk.c_str());
+    ImGui::Text("\u25C8 %s", risk.c_str());
     ImGui::PopStyleColor();
 }
 
@@ -33,11 +33,11 @@ void RenderExecutionStatus(int status_code) {
     if (status_code == 0) {
         auto color = Theme::ColorForStatus("completed");
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.3f, 0.8f, 0.4f, 1));
-        ImGui::Text("✅ Exit: %d", status_code);
+        ImGui::Text("\u2705 Exit: %d", status_code);
         ImGui::PopStyleColor();
     } else if (status_code > 0) {
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.9f, 0.3f, 0.3f, 1));
-        ImGui::Text("❌ Exit: %d", status_code);
+        ImGui::Text("\u274C Exit: %d", status_code);
         ImGui::PopStyleColor();
     }
 }

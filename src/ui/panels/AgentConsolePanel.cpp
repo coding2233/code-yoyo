@@ -5,13 +5,13 @@
 
 const char* AgentConsolePanel::StatusIcon(const Executor::Execution& exec) const {
     switch (exec.status) {
-        case Executor::Execution::Pending:    return "○";
-        case Executor::Execution::Running:    return "◉";
-        case Executor::Execution::Completed:  return "●";
-        case Executor::Execution::Failed:     return "✕";
-        case Executor::Execution::Cancelled:  return "—";
+        case Executor::Execution::Pending:    return "\u25CB";
+        case Executor::Execution::Running:    return "\u25C9";
+        case Executor::Execution::Completed:  return "\u25CF";
+        case Executor::Execution::Failed:     return "\u2715";
+        case Executor::Execution::Cancelled:  return "\u2014";
     }
-    return "○";
+    return "\u25CB";
 }
 
 ImU32 AgentConsolePanel::StatusColor(const Executor::Execution& exec) const {
@@ -124,11 +124,11 @@ void AgentConsolePanel::Render(const std::vector<Executor::Execution>& execution
     ImGui::PopStyleColor();
 
     if (exec.status == Executor::Execution::Completed) {
-        ImGui::TextColored(ImVec4(0.3f, 0.8f, 0.4f, 1), "✅  Exit: %d  |  %s", exec.exit_code, exec.end_time.c_str());
+        ImGui::TextColored(ImVec4(0.3f, 0.8f, 0.4f, 1), "\u2705  Exit: %d  |  %s", exec.exit_code, exec.end_time.c_str());
     } else if (exec.status == Executor::Execution::Failed) {
-        ImGui::TextColored(ImVec4(0.9f, 0.3f, 0.3f, 1), "❌  Exit: %d  |  %s", exec.exit_code, exec.end_time.c_str());
+        ImGui::TextColored(ImVec4(0.9f, 0.3f, 0.3f, 1), "\u274C  Exit: %d  |  %s", exec.exit_code, exec.end_time.c_str());
     } else if (exec.status == Executor::Execution::Cancelled) {
-        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1), "—  Cancelled  |  %s", exec.end_time.c_str());
+        ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1), "\u2014  Cancelled  |  %s", exec.end_time.c_str());
     }
 
     ImGui::End();

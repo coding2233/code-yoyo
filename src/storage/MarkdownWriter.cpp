@@ -100,7 +100,7 @@ std::string MarkdownWriter::AddConversationMsg(
         // Insert message right before the "---" separator after the subtask
         if (target_end > 0 && i == target_end - 1 && !added) {
             if (is_exec_log) {
-                out << "> #### 执行日志\n>\n> ```\n";
+                out << "> #### \u6267\u884c\u65e5\u5fd7\n>\n> ```\n";
                 std::istringstream body_stream(body);
                 std::string bl;
                 while (std::getline(body_stream, bl)) {

@@ -12,6 +12,11 @@
 #include <cstdio>
 #include <array>
 
+#ifdef _MSC_VER
+#define popen _popen
+#define pclose _pclose
+#endif
+
 static std::string NowTimestamp() {
     auto t = std::time(nullptr);
     auto tm = std::localtime(&t);
@@ -53,7 +58,7 @@ std::string Executor::GetGitDiff(const std::string& repo_path) {
 
     std::array<char, 4096> buf;
     std::string result;
-    std::string cmd = "cd \"" + repo_path + "\" 2>/dev/null && git diff 2>/dev/null";
+    std::string cmd = "cd /d \"" + repo_path + "\" 2>nul && git diff 2>nul";
 
     FILE* pipe = popen(cmd.c_str(), "r");
     if (!pipe) return "";

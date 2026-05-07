@@ -114,7 +114,7 @@ protected:
                 if (ImGui::MenuItem("Kanban Board", nullptr, current_view_ == 0)) { current_view_ = 0; }
                 if (ImGui::MenuItem("Task Tree", nullptr, current_view_ == 1)) { current_view_ = 1; }
                 if (ImGui::MenuItem("Scheduled Tasks", nullptr, current_view_ == 2)) { current_view_ = 2; }
-                if (ImGui::MenuItem("Diff Review", !pending_diff_.empty() ? "●" : nullptr, current_view_ == 3)) { current_view_ = 3; }
+                if (ImGui::MenuItem("Diff Review", !pending_diff_.empty() ? "\u25CF" : nullptr, current_view_ == 3)) { current_view_ = 3; }
                 if (ImGui::MenuItem("Settings", nullptr, current_view_ == 4)) { current_view_ = 4; }
                 ImGui::Separator();
                 ImGui::MenuItem("Project Panel", nullptr, &show_project_panel_);

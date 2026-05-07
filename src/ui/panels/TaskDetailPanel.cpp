@@ -302,7 +302,7 @@ void TaskDetailPanel::RenderSubtaskDetail(const Task& task, Subtask& sub,
 
     // Review status: approval buttons
     if (sub.status == SubtaskStatus::Review) {
-        ImGui::TextColored(ImVec4(0.9f, 0.7f, 0.2f, 1), "⚠ Pending Approval");
+        ImGui::TextColored(ImVec4(0.9f, 0.7f, 0.2f, 1), "\u26A0 Pending Approval");
         ImGui::SameLine();
         ImGui::TextDisabled("(risk: %s)", risk_str.c_str());
 

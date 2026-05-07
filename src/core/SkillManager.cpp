@@ -15,8 +15,8 @@ void SkillManager::LoadSkills() {
     if (!FileSystem::FileExists(path)) {
         Skill s;
         s.id = "code_generation";
-        s.description = "根据需求生成代码";
-        s.instructions = "根据需求生成高质量代码。\n遵循 SOLID 原则。\n包含类型定义和错误处理。";
+        s.description = "\u6839\u636e\u9700\u6c42\u751f\u6210\u4ee3\u7801";
+        s.instructions = "\u6839\u636e\u9700\u6c42\u751f\u6210\u9ad8\u8d28\u91cf\u4ee3\u7801\u3002\n\u9075\u5faa SOLID \u539f\u5219\u3002\n\u5305\u542b\u7c7b\u578b\u5b9a\u4e49\u548c\u9519\u8bef\u5904\u7406\u3002";
         skills_.push_back(s);
         SaveSkills();
         return;

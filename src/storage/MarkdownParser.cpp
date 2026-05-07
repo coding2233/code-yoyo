@@ -52,7 +52,7 @@ std::vector<Project> MarkdownParser::ParseProjectsIndex(const std::string& conte
             }
             auto space_after = trimmed.find(' ', close_bracket + 1);
             if (space_after != std::string::npos) {
-                auto emdash = trimmed.find("—", space_after + 1);
+                auto emdash = trimmed.find("\u2014", space_after + 1);
                 if (emdash != std::string::npos) {
                     p.repo = Trim(trimmed.substr(space_after + 1, emdash - space_after - 1));
                     p.status = Trim(trimmed.substr(emdash + 3));
@@ -70,7 +70,7 @@ std::string MarkdownParser::FormatProjectsIndex(const std::vector<Project>& proj
     std::ostringstream out;
     out << "# Projects\n\n";
     for (const auto& p : projects) {
-        out << "- [" << p.name << "] " << p.repo << " — " << p.status << "\n";
+        out << "- [" << p.name << "] " << p.repo << " \u2014 " << p.status << "\n";
     }
     return out.str();
 }
@@ -166,7 +166,7 @@ Task MarkdownParser::ParseTask(const std::string& content) {
         }
 
         // Heading 4: Exec log
-        if (trimmed == "#### 执行日志" && current_sub) {
+        if (trimmed == "#### \u6267\u884c\u65e5\u5fd7" && current_sub) {
             in_exec_log = true;
             current_msg = nullptr;
             continue;
@@ -363,7 +363,7 @@ std::string MarkdownParser::FormatTask(const Task& task) {
 
         for (const auto& msg : sub.conversation) {
             if (msg.is_exec_log) {
-                out << "> #### 执行日志\n>\n> ```\n";
+                out << "> #### \u6267\u884c\u65e5\u5fd7\n>\n> ```\n";
                 out << msg.body << "\n";
                 out << "> ```\n>\n";
             } else {

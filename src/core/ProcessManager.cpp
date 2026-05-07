@@ -118,7 +118,7 @@ std::string ProcessManager::Spawn(
     InitializeProcThreadAttributeList(attr_list, 1, 0, &attr_size);
     UpdateProcThreadAttribute(attr_list, 0, PROC_THREAD_ATTRIBUTE_PSEUDOCONSOLE, h_pc, sizeof(HPCON), nullptr, nullptr);
 
-    STARTUPINFOEX si = {0};
+    STARTUPINFOEXW si = {0};
     si.StartupInfo.cb = sizeof(STARTUPINFOEX);
     si.lpAttributeList = attr_list;
     PROCESS_INFORMATION pi = {0};
