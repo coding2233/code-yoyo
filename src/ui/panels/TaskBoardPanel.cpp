@@ -8,6 +8,24 @@
 #include "ui/Theme.h"
 #include <map>
 
+static bool UpdateSubtaskInFile(const std::string& tasks_path, const std::string& task_id,
+                                 const std::string& sub_id, const std::string& new_status) {
+    auto task_files = FileSystem::ListFiles(tasks_path, ".md");
+    for (const auto& f : task_files) {
+        auto content = FileSystem::ReadFile(f);
+        if (content.empty()) continue;
+        auto parsed = MarkdownParser::ParseTask(content);
+        if (parsed.id != task_id) continue;
+        auto updated = MarkdownWriter::UpdateSubtaskStatus(content, sub_id, new_status, "");
+        if (updated != content) {
+            FileSystem::WriteFile(f, updated);
+            return true;
+        }
+        break;
+    }
+    return false;
+}
+
 void TaskBoardPanel::Render(ProjectManager& pm, TaskManager& tm, const LayoutManager& layout) {
     if (!open_) return;
 
@@ -67,27 +85,24 @@ void TaskBoardPanel::Render(ProjectManager& pm, TaskManager& tm, const LayoutMan
         ImGui::EndPopup();
     }
 
-    std::map<SubtaskStatus, std::vector<std::pair<Task*, Subtask*>>> grouped;
+    struct ColumnDef {
+        std::string title;
+        std::string status;
+    };
+    ColumnDef cols[] = {
+        {"Planning",  "planning"},
+        {"Active",    "active"},
+        {"Completed", "completed"},
+        {"Cancelled", "cancelled"},
+    };
+
+    std::map<std::string, std::vector<Task*>> grouped;
     for (auto& task : tasks) {
-        for (auto& sub : task.subtasks) {
-            grouped[sub.status].push_back({&task, &sub});
-        }
+        grouped[task.status].push_back(&task);
     }
 
     const float avail = ImGui::GetContentRegionAvail().x;
     const float col_width = (avail - ImGui::GetStyle().ItemSpacing.x * 3) / 4.0f;
-
-    struct ColumnDef {
-        std::string title;
-        std::string status_str;
-        SubtaskStatus filter;
-    };
-    ColumnDef cols[] = {
-        {"Pending",     "pending",     SubtaskStatus::Pending},
-        {"In Progress", "in_progress", SubtaskStatus::InProgress},
-        {"Review",      "review",      SubtaskStatus::Review},
-        {"Completed",   "completed",   SubtaskStatus::Completed},
-    };
 
     for (int ci = 0; ci < 4; ci++) {
         if (ci > 0) ImGui::SameLine(0, ImGui::GetStyle().ItemSpacing.x);
@@ -95,42 +110,90 @@ void TaskBoardPanel::Render(ProjectManager& pm, TaskManager& tm, const LayoutMan
         ImGui::BeginGroup();
         ImGui::PushID(ci);
 
-        auto header_color = Theme::ColorForStatus(cols[ci].status_str);
+        auto header_color = Theme::ColorForStatus(cols[ci].status);
         ImGui::PushStyleColor(ImGuiCol_ChildBg, header_color & 0x00FFFFFF | 0x18000000);
         ImGui::BeginChild(("hdr" + cols[ci].title).c_str(), ImVec2(col_width, 32), true);
         ImGui::TextColored(ImVec4(
             ((header_color >> 24) & 0xFF) / 255.0f,
             ((header_color >> 16) & 0xFF) / 255.0f,
             ((header_color >> 8) & 0xFF) / 255.0f, 1),
-            "%s  %s", Theme::StatusIcon(cols[ci].status_str), cols[ci].title.c_str());
+            "%s  %s", Theme::StatusIcon(cols[ci].status), cols[ci].title.c_str());
         ImGui::EndChild();
         ImGui::PopStyleColor();
 
         float body_height = ImGui::GetContentRegionAvail().y;
         ImGui::BeginChild(("body" + cols[ci].title).c_str(), ImVec2(col_width, body_height), true);
 
-        // Drop target for the column
-        if (ImGui::BeginDragDropTarget()) {
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_SUBTASK")) {
-                std::string dropped_id((const char*)payload->Data);
-                auto task_files2 = FileSystem::ListFiles(project->tasks_path, ".md");
-                for (const auto& f : task_files2) {
-                    auto content = FileSystem::ReadFile(f);
-                    if (content.empty()) continue;
-                    auto updated = MarkdownWriter::UpdateSubtaskStatus(
-                        content, dropped_id, cols[ci].status_str, "");
-                    if (updated != content) {
-                        FileSystem::WriteFile(f, updated);
-                        break;
-                    }
-                }
-            }
-            ImGui::EndDragDropTarget();
-        }
+        auto& column_tasks = grouped[cols[ci].status];
+        for (auto* task : column_tasks) {
+            ImGui::PushID(task->id.c_str());
 
-        auto& items = grouped[cols[ci].filter];
-        for (auto& [task, sub] : items) {
-            RenderCard(*sub);
+            ImVec2 card_size = ImVec2(col_width - ImGui::GetStyle().WindowPadding.x * 2, 0);
+            ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 6.0f);
+            ImU32 card_bg = IM_COL32(22, 22, 28, 230);
+            ImGui::PushStyleColor(ImGuiCol_ChildBg, card_bg);
+            ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
+            ImGui::PushStyleColor(ImGuiCol_Border, IM_COL32(50, 50, 60, 200));
+            ImGui::BeginChild(("tcard" + task->id).c_str(), card_size, true);
+
+            ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1), "%s: %s",
+                task->id.c_str(), task->title.c_str());
+
+            int total = (int)task->subtasks.size();
+            int done = 0;
+            for (auto& sub : task->subtasks) {
+                if (sub.status == SubtaskStatus::Completed) done++;
+            }
+            ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.6f, 1), "%d/%d subtasks", done, total);
+
+            ImGui::Spacing();
+            ImGui::Separator();
+            for (int si = 0; si < (int)task->subtasks.size(); si++) {
+                auto& sub = task->subtasks[si];
+                ImGui::PushID(si);
+
+                bool is_selected = (selected_task_id_ == task->id && selected_sub_id_ == sub.id);
+
+                auto st = task->StatusString(sub.status);
+                auto st_color = Theme::ColorForStatus(st);
+
+                ImGui::PushStyleColor(ImGuiCol_Text, (ImVec4)ImColor(st_color));
+                ImGui::Text("%s", Theme::StatusIcon(st));
+                ImGui::PopStyleColor();
+
+                ImGui::SameLine();
+                std::string selectable_label = sub.title + "##" + task->id + "_s" + std::to_string(si);
+                if (ImGui::Selectable(selectable_label.c_str(), is_selected, ImGuiSelectableFlags_AllowDoubleClick)) {
+                    selected_task_id_ = task->id;
+                    selected_sub_id_ = sub.id;
+                }
+
+                std::string popup_id = "ctx" + task->id + "_s" + std::to_string(si);
+                if (ImGui::BeginPopupContextItem(popup_id.c_str())) {
+                    if (ImGui::MenuItem("Set Pending"))
+                        UpdateSubtaskInFile(project->tasks_path, task->id, sub.id, "pending");
+                    if (ImGui::MenuItem("Set In Progress"))
+                        UpdateSubtaskInFile(project->tasks_path, task->id, sub.id, "in_progress");
+                    if (ImGui::MenuItem("Set Completed"))
+                        UpdateSubtaskInFile(project->tasks_path, task->id, sub.id, "completed");
+                    if (ImGui::MenuItem("Set Failed"))
+                        UpdateSubtaskInFile(project->tasks_path, task->id, sub.id, "failed");
+                    if (ImGui::MenuItem("Set Cancelled"))
+                        UpdateSubtaskInFile(project->tasks_path, task->id, sub.id, "cancelled");
+                    ImGui::EndPopup();
+                }
+
+                ImGui::PopID();
+            }
+
+            ImGui::EndChild();
+            ImGui::PopStyleColor();
+            ImGui::PopStyleVar();
+            ImGui::PopStyleColor();
+            ImGui::PopStyleVar();
+
+            ImGui::PopID();
+            ImGui::Spacing();
         }
 
         ImGui::EndChild();
@@ -139,58 +202,4 @@ void TaskBoardPanel::Render(ProjectManager& pm, TaskManager& tm, const LayoutMan
     }
 
     ImGui::End();
-}
-
-void TaskBoardPanel::RenderCard(const Subtask& sub) {
-    ImGui::PushID(sub.id.c_str());
-
-    ImGui::BeginGroup();
-    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 4.0f);
-
-    ImU32 card_bg = IM_COL32(22, 22, 28, 220);
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, card_bg);
-    ImGui::BeginChild(("card" + sub.id).c_str(), ImVec2(0, 80), true);
-
-    ImGui::Text("%s", sub.title.c_str());
-
-    ImGui::Spacing();
-    ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.7f, 1), "%s", sub.id.c_str());
-    ImGui::SameLine();
-
-    std::string risk_str;
-    switch (sub.risk) {
-        case RiskLevel::Low: risk_str = "low"; break;
-        case RiskLevel::Medium: risk_str = "medium"; break;
-        case RiskLevel::High: risk_str = "high"; break;
-    }
-    auto risk_color = Theme::ColorForRisk(risk_str);
-    ImGui::TextColored(ImVec4(
-        ((risk_color >> 24) & 0xFF) / 255.0f,
-        ((risk_color >> 16) & 0xFF) / 255.0f,
-        ((risk_color >> 8) & 0xFF) / 255.0f, 1),
-        " %s", risk_str.c_str());
-
-    if (!sub.assignee.empty()) {
-        ImGui::TextDisabled("→ %s", sub.assignee.c_str());
-    }
-
-    if (ImGui::IsItemHovered() || ImGui::IsWindowHovered()) {
-        if (ImGui::IsMouseClicked(0)) {
-            selected_subtask_ = const_cast<Subtask*>(&sub);
-        }
-    }
-
-    // Drag source
-    if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
-        ImGui::SetDragDropPayload("DND_SUBTASK", sub.id.c_str(), sub.id.size() + 1);
-        ImGui::Text("Move %s", sub.id.c_str());
-        ImGui::EndDragDropSource();
-    }
-
-    ImGui::EndChild();
-    ImGui::PopStyleColor();
-    ImGui::PopStyleVar();
-    ImGui::EndGroup();
-
-    ImGui::PopID();
 }

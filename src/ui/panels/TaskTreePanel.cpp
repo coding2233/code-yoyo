@@ -47,6 +47,7 @@ void TaskTreePanel::Render(ProjectManager& pm, const LayoutManager& layout) {
         int sub_idx = 0;
         for (auto& sub : task.subtasks) {
             ImGui::Indent(16);
+            ImGui::PushID(sub_idx);
 
             bool is_sub_selected = (selected_task_idx_ == task_idx && selected_sub_idx_ == sub_idx);
             auto status_color = Theme::ColorForStatus(task.StatusString(sub.status));
@@ -70,6 +71,7 @@ void TaskTreePanel::Render(ProjectManager& pm, const LayoutManager& layout) {
                 selected_sub_idx_ = sub_idx;
             }
 
+            ImGui::PopID();
             ImGui::Unindent(16);
             sub_idx++;
         }

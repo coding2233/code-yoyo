@@ -20,7 +20,7 @@ void TaskDetailPanel::Render(ProjectManager& pm, TaskManager& tm,
     ImGui::Begin("Task Detail", &open_,
         ImGuiWindowFlags_NoCollapse);
 
-    if (!current_task_ || !current_subtask_) {
+    if (!HasSelection()) {
         ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.6f, 1),
             "Select a subtask from the board to view details.");
         ImGui::End();
@@ -34,8 +34,8 @@ void TaskDetailPanel::Render(ProjectManager& pm, TaskManager& tm,
         return;
     }
 
-    auto& task = *current_task_;
-    auto& sub = *current_subtask_;
+    auto& task = current_task_;
+    auto& sub = task.subtasks[current_subtask_idx_];
 
     ImGui::TextColored(ImVec4(0.4f, 0.7f, 1.0f, 1), "%s: %s", task.id.c_str(), task.title.c_str());
 
@@ -132,9 +132,9 @@ void TaskDetailPanel::Render(ProjectManager& pm, TaskManager& tm,
             task.subtasks = reloaded.subtasks;
             task.status = reloaded.status;
             task.description = reloaded.description;
-            for (auto& s : task.subtasks) {
-                if (s.id == sub.id) {
-                    current_subtask_ = &s;
+            for (int i = 0; i < (int)task.subtasks.size(); i++) {
+                if (task.subtasks[i].id == sub.id) {
+                    current_subtask_idx_ = i;
                     break;
                 }
             }
@@ -215,7 +215,7 @@ void TaskDetailPanel::HandleAgentTrigger(const std::string& body,
     exec.Execute(task, sub.id, *agent, project);
 }
 
-void TaskDetailPanel::RenderSubtaskDetail(const Task& task, Subtask& sub,
+void TaskDetailPanel::RenderSubtaskDetail(Task& task, Subtask& sub,
     Executor& exec, AgentManager& agent_mgr, const Project& project)
 {
     ImGui::TextColored(ImVec4(0.8f, 0.8f, 0.9f, 1), "%s: %s", sub.id.c_str(), sub.title.c_str());
@@ -369,7 +369,9 @@ void TaskDetailPanel::RenderConversation(const Subtask& sub) {
         return;
     }
 
+    int msg_idx = 0;
     for (const auto& msg : sub.conversation) {
+        ImGui::PushID(msg_idx++);
         if (msg.is_exec_log) {
             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.8f, 0.4f, 1));
             ImGui::Text("Execution Log:");
@@ -378,6 +380,7 @@ void TaskDetailPanel::RenderConversation(const Subtask& sub) {
             ImGui::TextWrapped("%s", msg.body.c_str());
             ImGui::PopStyleColor();
             ImGui::Spacing();
+            ImGui::PopID();
             continue;
         }
 
@@ -401,6 +404,7 @@ void TaskDetailPanel::RenderConversation(const Subtask& sub) {
 
             ImGui::Spacing();
         }
+        ImGui::PopID();
     }
 }
 

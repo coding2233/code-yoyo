@@ -78,19 +78,27 @@ protected:
             settings_panel_.Render(agent_mgr_, skill_mgr_, layout_mgr_);
         }
 
-        // Sync selected subtask to detail panel
-        auto* selected = task_board_panel_.GetSelectedSubtask();
-        auto* project = project_mgr_.GetActiveProject();
-        if (selected && project) {
-            auto task_files = FileSystem::ListFiles(project->tasks_path, ".md");
-            for (const auto& f : task_files) {
-                auto content = FileSystem::ReadFile(f);
-                if (content.empty()) continue;
-                auto task = MarkdownParser::ParseTask(content);
-                for (auto& sub : task.subtasks) {
-                    if (sub.id == selected->id) {
-                        task_detail_panel_.SetTask(&task);
-                        task_detail_panel_.SetSubtask(&sub);
+        // Sync selected subtask to detail panel (only on change)
+        auto selected_task_id = task_board_panel_.GetSelectedTaskId();
+        auto selected_sub_id = task_board_panel_.GetSelectedSubId();
+        if (selected_task_id != last_selected_task_id_ || selected_sub_id != last_selected_sub_id_) {
+            last_selected_task_id_ = selected_task_id;
+            last_selected_sub_id_ = selected_sub_id;
+            if (task_board_panel_.HasSelection()) {
+                auto* project = project_mgr_.GetActiveProject();
+                if (project) {
+                    auto task_files = FileSystem::ListFiles(project->tasks_path, ".md");
+                    for (const auto& f : task_files) {
+                        auto content = FileSystem::ReadFile(f);
+                        if (content.empty()) continue;
+                        auto task = MarkdownParser::ParseTask(content);
+                        if (task.id != selected_task_id) continue;
+                        for (int i = 0; i < (int)task.subtasks.size(); i++) {
+                            if (task.subtasks[i].id == selected_sub_id) {
+                                task_detail_panel_.SetTask(task, i);
+                                break;
+                            }
+                        }
                         break;
                     }
                 }
@@ -201,6 +209,9 @@ private:
 
     std::string pending_diff_;
     std::string pending_diff_subtask_;
+
+    std::string last_selected_task_id_;
+    std::string last_selected_sub_id_;
 };
 
 int main() {

@@ -8,7 +8,9 @@ void Render(const std::vector<ConversationMsg>& messages) {
         return;
     }
 
+    int msg_idx = 0;
     for (const auto& msg : messages) {
+        ImGui::PushID(msg_idx++);
         if (msg.is_exec_log) {
             ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.4f, 0.8f, 0.4f, 1));
             ImGui::Text("Execution Log:");
@@ -17,6 +19,7 @@ void Render(const std::vector<ConversationMsg>& messages) {
             ImGui::TextWrapped("%s", msg.body.c_str());
             ImGui::PopStyleColor();
             ImGui::Spacing();
+            ImGui::PopID();
             continue;
         }
 
@@ -42,6 +45,7 @@ void Render(const std::vector<ConversationMsg>& messages) {
 
             ImGui::Spacing();
         }
+        ImGui::PopID();
     }
 }
 
