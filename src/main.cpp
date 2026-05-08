@@ -216,7 +216,7 @@ private:
 
 int main() {
     volt::AppConfig cfg;
-    cfg.title = "CodeYoYo";
+    cfg.title = "code-yoyo";
     cfg.width = 1400;
     cfg.height = 860;
     cfg.use_topbar = true;

@@ -1,6 +1,6 @@
 includes("volt-ui")
 
-target("CodeYoYo")
+target("code-yoyo")
     set_kind("binary")
     set_languages("c++17")
     add_deps("volt-ui")

@@ -85,12 +85,17 @@ void TaskManager::AppendAudit(const std::string& audit_path, const std::string& 
 std::string TaskManager::GenerateTaskId(const std::vector<Task>& existing) {
     int max_num = 0;
     for (const auto& t : existing) {
-        auto dash = t.id.find('-');
-        if (dash != std::string::npos) {
-            try {
-                int num = std::stoi(t.id.substr(0, dash));
-                if (num > max_num) max_num = num;
-            } catch (...) {}
+        try {
+            int num = std::stoi(t.id);
+            if (num > max_num) max_num = num;
+        } catch (...) {
+            auto dash = t.id.find('-');
+            if (dash != std::string::npos) {
+                try {
+                    int num = std::stoi(t.id.substr(0, dash));
+                    if (num > max_num) max_num = num;
+                } catch (...) {}
+            }
         }
     }
     max_num++;

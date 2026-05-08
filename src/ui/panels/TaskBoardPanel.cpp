@@ -29,8 +29,7 @@ static bool UpdateSubtaskInFile(const std::string& tasks_path, const std::string
 void TaskBoardPanel::Render(ProjectManager& pm, TaskManager& tm, const LayoutManager& layout) {
     if (!open_) return;
 
-    ImGui::Begin("Task Board", &open_,
-        ImGuiWindowFlags_NoCollapse);
+    ImGui::Begin("Task Board", &open_, ImGuiWindowFlags_NoCollapse);
 
     auto* project = pm.GetActiveProject();
     if (!project) {
@@ -101,8 +100,9 @@ void TaskBoardPanel::Render(ProjectManager& pm, TaskManager& tm, const LayoutMan
         grouped[task.status].push_back(&task);
     }
 
-    const float avail = ImGui::GetContentRegionAvail().x;
-    const float col_width = (avail - ImGui::GetStyle().ItemSpacing.x * 3) / 4.0f;
+    ImVec2 content_avail = ImGui::GetContentRegionAvail();
+    const float col_width = (content_avail.x - ImGui::GetStyle().ItemSpacing.x * 3) / 4.0f;
+    const float body_height = content_avail.y - 40;
 
     for (int ci = 0; ci < 4; ci++) {
         if (ci > 0) ImGui::SameLine(0, ImGui::GetStyle().ItemSpacing.x);
@@ -111,7 +111,7 @@ void TaskBoardPanel::Render(ProjectManager& pm, TaskManager& tm, const LayoutMan
         ImGui::PushID(ci);
 
         auto header_color = Theme::ColorForStatus(cols[ci].status);
-        ImGui::PushStyleColor(ImGuiCol_ChildBg, header_color & 0x00FFFFFF | 0x18000000);
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, (header_color & 0x00FFFFFF) | 0x18000000);
         ImGui::BeginChild(("hdr" + cols[ci].title).c_str(), ImVec2(col_width, 32), true);
         ImGui::TextColored(ImVec4(
             ((header_color >> 24) & 0xFF) / 255.0f,
@@ -121,12 +121,10 @@ void TaskBoardPanel::Render(ProjectManager& pm, TaskManager& tm, const LayoutMan
         ImGui::EndChild();
         ImGui::PopStyleColor();
 
-        float body_height = ImGui::GetContentRegionAvail().y;
         ImGui::BeginChild(("body" + cols[ci].title).c_str(), ImVec2(col_width, body_height), true);
 
         auto& column_tasks = grouped[cols[ci].status];
         for (auto* task : column_tasks) {
-            ImGui::PushID(task->id.c_str());
 
             ImVec2 card_size = ImVec2(col_width - ImGui::GetStyle().WindowPadding.x * 2, 0);
             ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 6.0f);
@@ -150,7 +148,8 @@ void TaskBoardPanel::Render(ProjectManager& pm, TaskManager& tm, const LayoutMan
             ImGui::Separator();
             for (int si = 0; si < (int)task->subtasks.size(); si++) {
                 auto& sub = task->subtasks[si];
-                ImGui::PushID(si);
+                std::string uid = task->id + "::" + sub.id;
+                ImGui::PushID(uid.c_str());
 
                 bool is_selected = (selected_task_id_ == task->id && selected_sub_id_ == sub.id);
 
@@ -162,13 +161,13 @@ void TaskBoardPanel::Render(ProjectManager& pm, TaskManager& tm, const LayoutMan
                 ImGui::PopStyleColor();
 
                 ImGui::SameLine();
-                std::string selectable_label = sub.title + "##" + task->id + "_s" + std::to_string(si);
+                std::string selectable_label = sub.title + "##" + uid;
                 if (ImGui::Selectable(selectable_label.c_str(), is_selected, ImGuiSelectableFlags_AllowDoubleClick)) {
                     selected_task_id_ = task->id;
                     selected_sub_id_ = sub.id;
                 }
 
-                std::string popup_id = "ctx" + task->id + "_s" + std::to_string(si);
+                std::string popup_id = "ctx_" + uid;
                 if (ImGui::BeginPopupContextItem(popup_id.c_str())) {
                     if (ImGui::MenuItem("Set Pending"))
                         UpdateSubtaskInFile(project->tasks_path, task->id, sub.id, "pending");
@@ -192,7 +191,6 @@ void TaskBoardPanel::Render(ProjectManager& pm, TaskManager& tm, const LayoutMan
             ImGui::PopStyleColor();
             ImGui::PopStyleVar();
 
-            ImGui::PopID();
             ImGui::Spacing();
         }
 
