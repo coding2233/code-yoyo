@@ -9,14 +9,7 @@
 #include <thread>
 #include <atomic>
 
-#ifdef _WIN32
-#define WIN32_LEAN_AND_MEAN
-#include <Windows.h>
-#else
-#include <termios.h>
-#include <unistd.h>
-#include <sys/types.h>
-#endif
+#include <reproc++/reproc.hpp>
 
 class ProcessManager {
 public:
@@ -32,6 +25,8 @@ public:
         std::function<void(const std::string& id, int code)> on_exit = nullptr
     );
 
+    std::string GetLastSpawnError() const { return last_spawn_error_; }
+
     void WriteStdin(const std::string& id, const std::string& data);
     void Terminate(const std::string& id);
     bool IsRunning(const std::string& id);
@@ -40,15 +35,7 @@ public:
 private:
     struct ProcessInfo {
         std::string id;
-#ifdef _WIN32
-        HANDLE h_process = nullptr;
-        HPCON h_pc = nullptr;
-        HANDLE h_stdin_write = nullptr;
-        HANDLE h_stdout_read = nullptr;
-#else
-        int master_fd = -1;
-        pid_t child_pid = -1;
-#endif
+        reproc::process proc;
         std::thread worker;
         std::atomic<bool> finished{false};
         std::atomic<int> exit_code{-1};
@@ -59,7 +46,8 @@ private:
     std::mutex mu_;
     std::map<std::string, std::unique_ptr<ProcessInfo>> processes_;
     int next_id_ = 0;
+    std::string last_spawn_error_;
 
     std::string NextId();
-    static void ReadThreadProc(ProcessInfo* info);
+    void ReadThreadProc(ProcessInfo* info);
 };

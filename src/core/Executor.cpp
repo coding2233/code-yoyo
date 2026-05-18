@@ -221,6 +221,10 @@ void Executor::SpawnProcess(
                 e.exit_code = -1;
                 e.end_time = NowTimestamp();
                 e.output += "\n[Error] Failed to spawn: " + agent.command + "\n";
+                auto spawn_err = pm_.GetLastSpawnError();
+                if (!spawn_err.empty()) {
+                    e.output += "[Error] " + spawn_err + "\n";
+                }
                 if (on_status_change_) on_status_change_(e);
                 break;
             }

@@ -1,3 +1,6 @@
 [submodule "volt-ui"]
 	path = volt-ui
 	url = https://github.com/coding2233/volt-ui.git
+[submodule "deps/reproc"]
+	path = deps/reproc
+	url = https://github.com/daandemeyer/reproc.git
