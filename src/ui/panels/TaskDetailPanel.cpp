@@ -11,6 +11,7 @@
 #include <sstream>
 #include <cstring>
 #include <algorithm>
+#include <iostream>
 
 void TaskDetailPanel::Render(ProjectManager& pm, TaskManager& tm,
     Executor& exec, AgentManager& agent_mgr, const LayoutManager& layout)
@@ -276,17 +277,32 @@ void TaskDetailPanel::RenderSubtaskDetail(Task& task, Subtask& sub,
 
             ImGui::SameLine();
             if (ImGui::Button("Run", ImVec2(80, 0))) {
-                auto* agent = agent_mgr.FindAgent(std::string(agent_buf_));
-                if (agent && agent->enabled) {
+                std::string agent_id(agent_buf_);
+                std::cerr << "[TaskDetailPanel] Run clicked: agent_buf_='" << agent_id
+                          << "', task.id=" << task.id << ", sub.id=" << sub.id << "\n";
+                auto* agent = agent_mgr.FindAgent(agent_id);
+                if (!agent) {
+                    std::cerr << "[TaskDetailPanel] Agent '" << agent_id << "' not found (available:";
+                    for (const auto& a : agent_mgr.GetGlobalAgents())
+                        std::cerr << " " << a.id;
+                    std::cerr << ")\n";
+                } else if (!agent->enabled) {
+                    std::cerr << "[TaskDetailPanel] Agent '" << agent_id << "' is disabled\n";
+                } else {
                     auto task_path = project.TaskFilePath(task.id, task.title);
+                    std::cerr << "[TaskDetailPanel] task_path=" << task_path << "\n";
                     auto content = FileSystem::ReadFile(task_path);
                     if (!content.empty()) {
                         auto updated = MarkdownWriter::UpdateSubtaskStatus(
                             content, sub.id, "in_progress", "");
                         FileSystem::WriteFile(task_path, updated);
+                        std::cerr << "[TaskDetailPanel] Status updated to in_progress\n";
+                    } else {
+                        std::cerr << "[TaskDetailPanel] Task file is empty or not found\n";
                     }
 
                     exec.Execute(task, sub.id, *agent, project);
+                    std::cerr << "[TaskDetailPanel] exec.Execute returned\n";
                 }
             }
         }

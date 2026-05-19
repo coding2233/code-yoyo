@@ -1,9 +1,12 @@
 #include "SkillManager.h"
 #include "storage/MarkdownParser.h"
 #include "core/FileSystem.h"
+#include <filesystem>
+namespace fs = std::filesystem;
 
 void SkillManager::Init() {
     LoadSkills();
+    LoadBundledSkills();
 }
 
 void SkillManager::Shutdown() {
@@ -23,6 +26,29 @@ void SkillManager::LoadSkills() {
     }
     auto content = FileSystem::ReadFile(path);
     skills_ = MarkdownParser::ParseSkills(content);
+}
+
+void SkillManager::LoadBundledSkills() {
+    auto configs_dir = FileSystem::GetExeDir() + "/configs/skills";
+    if (!FileSystem::DirExists(configs_dir)) return;
+
+    for (const auto& entry : fs::directory_iterator(configs_dir)) {
+        if (!entry.is_regular_file()) continue;
+        auto fpath = entry.path().string();
+        if (fpath.size() < 3 || fpath.substr(fpath.size() - 3) != ".md") continue;
+
+        auto content = FileSystem::ReadFile(fpath);
+        auto parsed = MarkdownParser::ParseSkills(content);
+        for (auto& s : parsed) {
+            bool exists = false;
+            for (const auto& existing : skills_) {
+                if (existing.id == s.id) { exists = true; break; }
+            }
+            if (!exists) {
+                skills_.push_back(std::move(s));
+            }
+        }
+    }
 }
 
 void SkillManager::SaveSkills() {

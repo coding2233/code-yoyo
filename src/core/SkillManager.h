@@ -18,5 +18,6 @@ public:
 
 private:
     void LoadSkills();
+    void LoadBundledSkills();
     std::vector<Skill> skills_;
 };

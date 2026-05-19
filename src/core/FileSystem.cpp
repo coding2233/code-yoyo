@@ -3,6 +3,9 @@
 #include <sstream>
 #include <filesystem>
 #include <algorithm>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 namespace fs = std::filesystem;
 
 namespace FileSystem {
@@ -70,11 +73,54 @@ std::string GetHomeDir() {
 }
 
 std::string GetCodeYoYoDir() {
-    return GetHomeDir() + "/.codeyoyo";
+    return GetHomeDir() + "/.code-yoyo";
 }
 
 std::string GetProjectsDir() {
     return GetCodeYoYoDir() + "/projects";
+}
+
+std::string GetExeDir() {
+#ifdef _WIN32
+    char buf[MAX_PATH];
+    GetModuleFileNameA(nullptr, buf, MAX_PATH);
+    std::string path(buf);
+    auto pos = path.find_last_of("/\\");
+    return (pos != std::string::npos) ? path.substr(0, pos) : ".";
+#else
+    return ".";
+#endif
+}
+
+std::string SanitizePath(const std::string& path) {
+    std::string result;
+    result.reserve(path.size());
+    for (unsigned char c : path) {
+        // Keep printable ASCII, common path chars, and valid UTF-8 continuations
+        if (c >= 0x20 && c <= 0x7E) {
+            result += static_cast<char>(c);
+        } else if (c >= 0x80) {
+            // Keep valid UTF-8 multi-byte sequences, but drop U+FFFD (EF BF BD)
+            if (c == 0xEF) {
+                // Check for U+FFFD (EF BF BD)
+                auto idx = &c - reinterpret_cast<const unsigned char*>(path.data());
+                if (idx + 2 < path.size() &&
+                    static_cast<unsigned char>(path[idx + 1]) == 0xBF &&
+                    static_cast<unsigned char>(path[idx + 2]) == 0xBD) {
+                    // Skip this replacement character sequence
+                    continue;
+                }
+            }
+            // Also drop standalone byte 0x80-0xBF (invalid start)
+            if (c < 0xC0) continue;
+            result += static_cast<char>(c);
+        }
+        // Drop control characters (0x00-0x1F)
+    }
+    // Trim trailing space/dot
+    while (!result.empty() && (result.back() == ' ' || result.back() == '.'))
+        result.pop_back();
+    return result;
 }
 
 }

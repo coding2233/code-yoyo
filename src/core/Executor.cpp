@@ -11,6 +11,7 @@
 #include <iomanip>
 #include <cstdio>
 #include <array>
+#include <iostream>
 
 #ifdef _MSC_VER
 #define popen _popen
@@ -85,7 +86,14 @@ static std::string BuildPrompt(const Subtask& sub, const Agent& agent,
 
     if (!sub.description.empty()) {
         prompt += sub.description;
+    } else if (!sub.title.empty()) {
+        prompt += sub.title;
     }
+
+    for (const auto& msg : sub.conversation) {
+        prompt += "\n---\n[" + msg.sender + " (" + msg.timestamp + ")]\n" + msg.body;
+    }
+
     if (prompt.empty()) {
         prompt = sub.title;
     }
@@ -98,19 +106,44 @@ void Executor::SpawnProcess(
     const Project& project,
     std::shared_ptr<ExecPayload> payload)
 {
+    std::string resolved_args = agent.args;
+    bool has_message_var = resolved_args.find("${message}") != std::string::npos;
+
+    auto replace_var = [&](const std::string& var, const std::string& val) {
+        size_t pos = 0;
+        while ((pos = resolved_args.find(var, pos)) != std::string::npos) {
+            resolved_args.replace(pos, var.size(), val);
+            pos += val.size();
+        }
+    };
+    replace_var("${model}", agent.model);
+    replace_var("${instructions}", agent.instructions);
+    replace_var("${message}", prompt);
+
     std::vector<std::string> args;
-    if (!agent.args.empty()) {
-        std::istringstream ss(agent.args);
+    if (!resolved_args.empty()) {
+        std::istringstream ss(resolved_args);
         std::string a;
         while (ss >> a) {
             args.push_back(a);
         }
     }
-    if (!prompt.empty()) {
+    if (!has_message_var && !prompt.empty()) {
         args.push_back(prompt);
     }
 
     std::string cwd = project.repo;
+
+    std::cerr << "[Executor] SpawnProcess: command=" << agent.command
+              << ", cwd=" << cwd << "\n";
+    std::cerr << "[Executor] SpawnProcess: full args:";
+    // Reconstruct full arg list for logging
+    std::vector<std::string> all_spawn_args;
+    all_spawn_args.push_back(agent.command);
+    for (const auto& a_ : args) all_spawn_args.push_back(a_);
+    for (const auto& a_ : all_spawn_args) std::cerr << " '" << a_ << "'";
+    std::cerr << "\n";
+
     std::map<std::string, std::string> env = agent.env;
 
     auto on_output = [this, payload](const std::string& pid, const std::string& data) {
@@ -125,6 +158,7 @@ void Executor::SpawnProcess(
     };
 
     auto on_exit = [this, payload](const std::string& pid, int code) {
+        std::string exec_output;
         {
             std::lock_guard<std::mutex> lock(mu_);
             for (auto& e : executions_) {
@@ -132,6 +166,7 @@ void Executor::SpawnProcess(
                     e.exit_code = code;
                     e.end_time = NowTimestamp();
                     e.status = (code == 0) ? Execution::Completed : Execution::Failed;
+                    exec_output = e.output;
                     break;
                 }
             }
@@ -166,12 +201,18 @@ void Executor::SpawnProcess(
             auto updated = MarkdownWriter::UpdateSubtaskStatus(
                 content, payload->subtask_id, new_status, result_str);
 
+            std::string conv_body;
+            if (!exec_output.empty()) {
+                conv_body = exec_output;
+            } else {
+                conv_body = (code == 0)
+                    ? "exit:" + std::to_string(code)
+                    : "failed (exit:" + std::to_string(code) + ")";
+            }
+
             updated = MarkdownWriter::AddConversationMsg(
                 updated, payload->subtask_id, payload->agent_id,
-                NowShort(),
-                (code == 0) ? "✅ 已完成，exit:" + std::to_string(code)
-                            : "❌ 失败，exit:" + std::to_string(code),
-                false);
+                NowShort(), conv_body, false);
 
             // Collect diff if successful
             if (code == 0 && on_diff_available_) {
@@ -214,6 +255,8 @@ void Executor::SpawnProcess(
     }
 
     if (pid.empty()) {
+        auto spawn_err = pm_.GetLastSpawnError();
+        std::cerr << "[Executor] SpawnProcess FAILED: " << spawn_err << "\n";
         std::lock_guard<std::mutex> lock(mu_);
         for (auto& e : executions_) {
             if (e.id == payload->exec_id) {
@@ -221,7 +264,6 @@ void Executor::SpawnProcess(
                 e.exit_code = -1;
                 e.end_time = NowTimestamp();
                 e.output += "\n[Error] Failed to spawn: " + agent.command + "\n";
-                auto spawn_err = pm_.GetLastSpawnError();
                 if (!spawn_err.empty()) {
                     e.output += "[Error] " + spawn_err + "\n";
                 }
@@ -229,6 +271,8 @@ void Executor::SpawnProcess(
                 break;
             }
         }
+    } else {
+        std::cerr << "[Executor] SpawnProcess OK, pid=" << pid << "\n";
     }
 }
 
@@ -239,10 +283,18 @@ void Executor::Execute(
     const Project& project)
 {
     const auto* sub = task.FindSubtask(subtask_id);
-    if (!sub) return;
+    if (!sub) {
+        std::cerr << "[Executor] Execute: subtask '" << subtask_id << "' not found in task '" << task.id << "'\n";
+        return;
+    }
+
+    std::cerr << "[Executor] Execute: task=" << task.id << ", sub=" << subtask_id
+              << ", agent=" << agent.id << ", auto_approve=" << agent.auto_approve
+              << ", sub_risk=" << static_cast<int>(sub->risk) << "\n";
 
     // Approval gate check
     if (ApprovalGate::NeedsApproval(*sub, agent)) {
+        std::cerr << "[Executor] Approval needed (risk exceeds threshold)\n";
         auto task_paths = FileSystem::ListFiles(project.tasks_path, ".md");
         for (const auto& f : task_paths) {
             auto content = FileSystem::ReadFile(f);
@@ -255,6 +307,7 @@ void Executor::Execute(
                     content, subtask_id, "review",
                     std::string("Waiting for approval (risk: ") + risk_str + ")");
                 FileSystem::WriteFile(f, updated);
+                std::cerr << "[Executor] Status set to review (pending approval)\n";
                 break;
             }
         }
@@ -264,6 +317,7 @@ void Executor::Execute(
         return;
     }
 
+    std::cerr << "[Executor] No approval needed, enqueuing\n";
     Enqueue(task, subtask_id, agent, project);
 }
 
@@ -282,13 +336,18 @@ void Executor::Enqueue(
 
 void Executor::ProcessQueue() {
     std::lock_guard<std::mutex> lock(queue_mu_);
+    std::cerr << "[Executor] ProcessQueue: queue size=" << queue_.size() << "\n";
     for (auto it = queue_.begin(); it != queue_.end(); ) {
-        if (CanExecute(it->task, it->subtask_id)) {
+        bool can_exec = CanExecute(it->task, it->subtask_id);
+        std::cerr << "[Executor] ProcessQueue: sub=" << it->subtask_id
+                  << ", can_exec=" << can_exec << "\n";
+        if (can_exec) {
             bool blocked = false;
             if (HasSerialSubtaskRunning(it->task.id)) {
                 auto* sub = it->task.FindSubtask(it->subtask_id);
                 if (sub && sub->exec_mode == ExecMode::Serial) {
                     blocked = true;
+                    std::cerr << "[Executor] ProcessQueue: blocked by serial exec\n";
                 }
             }
             if (!blocked) {
@@ -330,7 +389,11 @@ void Executor::DoExecute(
     const Project& project)
 {
     const auto* sub = task.FindSubtask(subtask_id);
-    if (!sub) return;
+    if (!sub) {
+        std::cerr << "[Executor] DoExecute: subtask '" << subtask_id << "' not found\n";
+        return;
+    }
+    std::cerr << "[Executor] DoExecute: sub=" << subtask_id << ", agent=" << agent.id << "\n";
 
     auto id = NextExecutionId();
 

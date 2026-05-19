@@ -20,6 +20,7 @@ target("code-yoyo")
 
     after_build(function (target)
         os.cp("fonts", target:targetdir())
+        os.cp("configs", target:targetdir())
     end)
 
 target_end()

@@ -34,12 +34,19 @@ void ProjectManager::LoadProjectsIndex() {
     auto content = FileSystem::ReadFile(path);
     projects_ = MarkdownParser::ParseProjectsIndex(content);
 
-    // Assign codeyoyo paths
+    // Assign codeyoyo paths and sanitize repo
+    bool repo_changed = false;
     for (auto& p : projects_) {
         p.codeyoyo_path = FileSystem::GetProjectsDir() + "/" + p.name;
         p.tasks_path = p.codeyoyo_path + "/tasks";
         p.sessions_path = p.codeyoyo_path + "/sessions";
+        auto cleaned = FileSystem::SanitizePath(p.repo);
+        if (cleaned != p.repo) {
+            p.repo = cleaned;
+            repo_changed = true;
+        }
     }
+    if (repo_changed) SaveProjectsIndex();
 }
 
 void ProjectManager::SaveProjectsIndex() {
@@ -67,7 +74,7 @@ Project* ProjectManager::CreateProject(const std::string& name, const std::strin
 
     Project p;
     p.name = name;
-    p.repo = repo;
+    p.repo = FileSystem::SanitizePath(repo);
     p.created = TaskManager::Now();
     p.status = "active";
     p.codeyoyo_path = FileSystem::GetProjectsDir() + "/" + name;

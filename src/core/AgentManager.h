@@ -18,5 +18,6 @@ public:
 
 private:
     void LoadAgents();
+    void LoadBundledAgents();
     std::vector<Agent> global_agents_;
 };

@@ -30,9 +30,7 @@ std::string MarkdownParser::ExtractBoldValue(const std::string& line, const std:
     }
     if (pos == std::string::npos) return "";
     auto val_start = pos + pattern.size();
-    auto val_end = line.find_first_of(" \t\r\n", val_start);
-    if (val_end == std::string::npos) return Trim(line.substr(val_start));
-    return Trim(line.substr(val_start, val_end - val_start));
+    return Trim(line.substr(val_start));
 }
 
 // ---- Projects Index ----

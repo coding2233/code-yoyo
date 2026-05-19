@@ -1,5 +1,10 @@
 #include "ProcessManager.h"
 #include <iostream>
+#include <filesystem>
+#ifdef _WIN32
+#include <windows.h>
+#endif
+namespace fs = std::filesystem;
 
 ProcessManager::~ProcessManager() {
     ShutdownAll();
@@ -25,14 +30,61 @@ std::string ProcessManager::Spawn(
     info->on_exit = std::move(on_exit);
 
     std::vector<std::string> all_args;
+
+#ifdef _WIN32
+    std::string resolved_cmd = command;
+    bool no_ext = command.find('.') == std::string::npos;
+    if (no_ext) {
+        bool found_cmd = false;
+        char buf[MAX_PATH];
+        char* ext;
+        DWORD ret = SearchPathA(nullptr, command.c_str(), ".cmd", MAX_PATH, buf, &ext);
+        std::cerr << "[ProcessManager] SearchPathA('" << command << "', '.cmd') returned " << ret << "\n";
+        if (ret > 0) {
+            found_cmd = true;
+            std::cerr << "[ProcessManager]  found at: " << buf << "\n";
+        }
+
+        if (found_cmd) {
+            all_args.push_back("cmd.exe");
+            all_args.push_back("/c");
+            all_args.push_back(command);
+            for (const auto& a : args) {
+                all_args.push_back(a);
+            }
+        } else {
+            all_args.push_back(command);
+            for (const auto& a : args) {
+                all_args.push_back(a);
+            }
+        }
+    } else {
+        all_args.push_back(command);
+        for (const auto& a : args) {
+            all_args.push_back(a);
+        }
+    }
+#else
     all_args.push_back(command);
     for (const auto& a : args) {
         all_args.push_back(a);
     }
+#endif
 
     reproc::options opts;
     if (!cwd.empty()) {
-        opts.working_directory = cwd.c_str();
+        std::error_code ec2;
+        bool cwd_ok = fs::exists(cwd, ec2);
+        std::cerr << "[ProcessManager] cwd='" << cwd << "' exists=" << cwd_ok;
+        if (!cwd_ok) std::cerr << " error=" << ec2.message();
+        std::cerr << "\n";
+        // Print raw hex for debugging encoding
+        std::cerr << "[ProcessManager] cwd hex:";
+        for (unsigned char cc : cwd) std::cerr << ' ' << std::hex << (int)cc;
+        std::cerr << std::dec << "\n";
+        if (cwd_ok) {
+            opts.working_directory = cwd.c_str();
+        }
     }
     if (!env.empty()) {
         opts.env.behavior = reproc::env::extend;
@@ -42,8 +94,13 @@ std::string ProcessManager::Spawn(
     opts.redirect.out = { reproc::redirect::pipe };
     opts.redirect.err = { reproc::redirect::stdout_ };
 
+    std::cerr << "[ProcessManager] actual spawn args:";
+    for (const auto& a_ : all_args) std::cerr << " '" << a_ << "'";
+    std::cerr << "\n";
+
     auto ec = info->proc.start(all_args, opts);
     if (ec) {
+        std::cerr << "[ProcessManager] start failed: " << ec.message() << "\n";
         last_spawn_error_ = "Failed to spawn: " + command + " (" + ec.message() + ")";
         return "";
     }

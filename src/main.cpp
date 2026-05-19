@@ -77,11 +77,11 @@ protected:
         FileSystem::CreateDirs(FileSystem::GetCodeYoYoDir());
         FileSystem::CreateDirs(FileSystem::GetProjectsDir());
 
-        if (!CheckOpenCodeAvailable()) {
-            std::cerr << "[Warning] 'opencode --help' failed - opencode may not be installed or not in PATH.\n";
-        } else {
-            std::cout << "[Info] opencode is available.\n";
-        }
+        // if (!CheckOpenCodeAvailable()) {
+        //     std::cerr << "[Warning] 'opencode --help' failed - opencode may not be installed or not in PATH.\n";
+        // } else {
+        //     std::cout << "[Info] opencode is available.\n";
+        // }
 
         project_mgr_.Init();
         agent_mgr_.Init();

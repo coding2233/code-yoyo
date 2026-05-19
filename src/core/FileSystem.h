@@ -16,5 +16,7 @@ std::vector<std::string> ListFiles(const std::string& dir, const std::string& ex
 std::string GetHomeDir();
 std::string GetCodeYoYoDir();
 std::string GetProjectsDir();
+std::string GetExeDir();
+std::string SanitizePath(const std::string& path);
 
 }
