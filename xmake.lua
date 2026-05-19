@@ -1,5 +1,5 @@
 includes("volt-ui")
-includes("deps/reproc")
+includes("deps")
 
 target("code-yoyo")
     set_kind("binary")

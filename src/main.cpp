@@ -1,5 +1,7 @@
 #include <volt-ui/VoltApp.h>
 #include <imgui.h>
+#include <reproc++/reproc.hpp>
+#include <iostream>
 
 #include "core/ProjectManager.h"
 #include "core/TaskManager.h"
@@ -29,6 +31,43 @@ public:
         scheduler_(project_mgr_, task_mgr_, executor_, agent_mgr_) {}
 
 protected:
+    static bool CheckOpenCodeAvailable() {
+        reproc::process proc;
+        reproc::options opts;
+        opts.redirect.out = { reproc::redirect::pipe };
+        opts.redirect.err = { reproc::redirect::stdout_ };
+
+#ifdef _WIN32
+        // npm global packages install as .cmd wrappers on Windows;
+        // CreateProcess does not resolve .cmd via PATH, so go through cmd.exe.
+        std::vector<std::string> args = {"cmd.exe", "/c", "opencode", "--help"};
+#else
+        std::vector<std::string> args = {"opencode", "--help"};
+#endif
+
+        auto ec = proc.start(args, opts);
+        if (ec) return false;
+
+        uint8_t buf[4096];
+        std::string output;
+        while (true) {
+            auto [bytes_read, ec2] = proc.read(reproc::stream::out, buf, sizeof(buf) - 1);
+            if (ec2) break;
+            if (bytes_read > 0) {
+                buf[bytes_read] = '\0';
+                output += reinterpret_cast<char*>(buf);
+            }
+        }
+
+        auto [status, ec3] = proc.wait(reproc::milliseconds(5000));
+        if (ec3) {
+            proc.terminate();
+            proc.wait(reproc::milliseconds(1000));
+            return false;
+        }
+        return status == 0;
+    }
+
     void OnCreate() override {
         Theme::ApplyDark();
         Theme::LoadFonts();
@@ -37,6 +76,12 @@ protected:
 
         FileSystem::CreateDirs(FileSystem::GetCodeYoYoDir());
         FileSystem::CreateDirs(FileSystem::GetProjectsDir());
+
+        if (!CheckOpenCodeAvailable()) {
+            std::cerr << "[Warning] 'opencode --help' failed - opencode may not be installed or not in PATH.\n";
+        } else {
+            std::cout << "[Info] opencode is available.\n";
+        }
 
         project_mgr_.Init();
         agent_mgr_.Init();
